@@ -18,8 +18,11 @@ import OpsClientListScreen from './screens/ops/OpsClientListScreen';
 import OpsClientProfileScreen from './screens/ops/OpsClientProfileScreen';
 import OpsPendingListScreen from './screens/ops/OpsPendingListScreen';
 import OpsPendingLoanDetailScreen from './screens/ops/OpsPendingLoanDetailScreen';
+import SignatureAgreementScreen from './screens/ops/SignatureAgreementScreen';
+import SignedAgreementPreview from './screens/ops/SignedAgreementPreview';
 import LoanOfficerNotifications from './screens/loanofficer/LoanOfficerNotifications';
 import LoanHistoryScreen from './screens/shared/LoanHistoryScreen';
+import DocumentPreviewScreen from './screens/shared/DocumentPreviewScreen';
 
 
 // Contexts
@@ -51,8 +54,17 @@ export default function App() {
               <Stack.Screen name="OpsClientProfile" component={OpsClientProfileScreen} />
               <Stack.Screen name="OpsPendingList" component={OpsPendingListScreen} />
               <Stack.Screen name="OpsPendingLoanDetail" component={OpsPendingLoanDetailScreen} />
+              <Stack.Screen name="SignatureAgreement" component={SignatureAgreementScreen} />
+              <Stack.Screen name="SignedAgreementPreview" component={SignedAgreementPreview} />
               <Stack.Screen name="LoanOfficerNotifications" component={LoanOfficerNotifications} />
               <Stack.Screen name="LoanHistory" component={LoanHistoryScreen} />
+              <Stack.Screen
+                name="DocumentPreview"
+                component={DocumentPreviewScreen}
+                options={({ route }) => ({
+                  headerShown: false,
+                })}
+              />
             </Stack.Navigator>
           </NavigationContainer>
         </LoanProvider>

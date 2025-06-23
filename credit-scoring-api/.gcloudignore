@@ -1,0 +1,38 @@
+# Node.js dependencies
+node_modules/
+
+# Environment files (sensitive data)
+.env
+.env.local
+.env.production
+.env.development
+
+# Log files
+*.log
+logs/
+
+# Git directory
+.git/
+.gitignore
+
+# Development files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing files
+coverage/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/

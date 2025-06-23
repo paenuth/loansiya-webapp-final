@@ -1,18 +1,20 @@
 import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { UsersContext } from '../../contexts/UsersContext';
 import TopBar from '../../components/common/TopBar';
 import DashboardCard from '../../components/common/DashboardCard';
 
 export default function DashboardScreen({ navigation }) {
   const { users } = useContext(UsersContext);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   
   const officerCount = users.filter(user =>
-    user.role === 'Officer' && user.status === 'Active'
+    (user.roleType === 'LOAN_OFFICER' || user.role === 'Loan Officer') && user.status === 'Active'
   ).length;
   
   const opsCount = users.filter(user =>
-    user.role === 'Ops' && user.status === 'Active'
+    (user.roleType === 'OPS_MANAGER' || user.role === 'OPS_MANAGER') && user.status === 'Active'
   ).length;
 
   return (
@@ -24,7 +26,7 @@ export default function DashboardScreen({ navigation }) {
       />
 
       <View style={styles.content}>
-        <View style={styles.cardRow}>
+        <View style={[styles.cardRow, isMobile && styles.cardRowMobile]}>
           <DashboardCard
             label="Total Active Loan Officers"
             value={officerCount}
@@ -35,10 +37,10 @@ export default function DashboardScreen({ navigation }) {
           />
         </View>
         <TouchableOpacity
-          style={styles.viewListButton}
+          style={[styles.viewListButton, isMobile && styles.viewListButtonMobile]}
           onPress={() => navigation.navigate('UserManagement')}
         >
-          <Text style={styles.buttonText}>View List</Text>
+          <Text style={[styles.buttonText, isMobile && styles.buttonTextMobile]}>View List</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -60,6 +62,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 20,
     marginBottom: 20,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  cardRowMobile: {
+    flexDirection: 'column',
+    gap: 15,
+    alignItems: 'center',
   },
   viewListButton: {
     backgroundColor: '#0066ff',
@@ -67,10 +76,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 8,
     marginTop: 20,
+    minWidth: 200,
+  },
+  viewListButtonMobile: {
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    marginTop: 25,
+    width: '80%',
+    maxWidth: 300,
   },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+    textAlign: 'center',
+  },
+  buttonTextMobile: {
+    fontSize: 15,
   },
 });

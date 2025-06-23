@@ -1,13 +1,27 @@
-import { createContext, useState } from 'react';
+import { createContext, useState, useEffect } from 'react';
 
 export const AuthContext = createContext({
   currentUser: null,
   setCurrentUser: () => {},
   resetPassword: () => {},
+  logout: () => {},
 });
 
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    // Try to get saved user from localStorage on init
+    const savedUser = localStorage.getItem('currentUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  // Update localStorage whenever currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('currentUser');
+    }
+  }, [currentUser]);
 
   const resetPassword = async (username, newPassword) => {
     // Validate inputs
@@ -28,11 +42,16 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
+  const logout = () => {
+    setCurrentUser(null);
+  };
+
   return (
     <AuthContext.Provider value={{
       currentUser,
       setCurrentUser,
       resetPassword,
+      logout,
     }}>
       {children}
     </AuthContext.Provider>

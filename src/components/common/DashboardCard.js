@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 
 export default function DashboardCard({ label, value, onPress }) {
   return (
@@ -18,33 +18,42 @@ export default function DashboardCard({ label, value, onPress }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#e2e2e2',
-    paddingVertical: 30,
-    paddingHorizontal: 25,
+    paddingVertical: Platform.select({ web: 30, default: 20 }),
+    paddingHorizontal: Platform.select({ web: 25, default: 15 }),
     borderRadius: 12,
-    width: 180,
+    width: Platform.select({ web: 200, default: '45%' }),
+    minWidth: Platform.select({ web: 180, default: 150 }),
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   label: {
-    fontSize: 16,
+    fontSize: Platform.select({ web: 16, default: 14 }),
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: Platform.select({ web: 8, default: 6 }),
     color: '#333',
+    fontWeight: '500',
   },
   number: {
-    fontSize: 28,
+    fontSize: Platform.select({ web: 28, default: 24 }),
     fontWeight: 'bold',
     color: '#111',
-    marginBottom: 14,
+    marginBottom: Platform.select({ web: 14, default: 10 }),
   },
   button: {
     backgroundColor: '#0066ff',
-    paddingVertical: 10,
-    paddingHorizontal: 30,
+    paddingVertical: Platform.select({ web: 10, default: 8 }),
+    paddingHorizontal: Platform.select({ web: 30, default: 20 }),
     borderRadius: 8,
+    width: '90%',
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: Platform.select({ web: 16, default: 14 }),
+    textAlign: 'center',
   },
 });

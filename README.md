@@ -114,3 +114,12 @@ To run the web application:
 ```bash
 npx expo start --web
 ```
+
+## Running the credit-scoring-api
+
+Install also the "npm install pdfkit" to produce the pdf file 
+1. cd credit-scoring-api
+2. npm install pdfkit
+```bash
+npm start
+```

@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import { useLoan } from '../../contexts/LoanContext';
 import TopBar from '../../components/common/TopBar';
 import DashboardCard from '../../components/common/DashboardCard';
 
 export default function LoanOfficerDashboard({ navigation }) {
   const { loans, unreadCount } = useLoan();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   
   const totalLoanClients = loans.length;
   const totalLoanPending = loans.filter(loan =>
@@ -22,8 +24,8 @@ export default function LoanOfficerDashboard({ navigation }) {
         unreadCount={unreadCount}
       />
 
-      <View style={styles.content}>
-        <View style={styles.cardRow}>
+      <View style={[styles.content, isMobile && styles.contentMobile]}>
+        <View style={[styles.cardRow, isMobile && styles.cardRowMobile]}>
           <DashboardCard
             label="Total Loan Client"
             value={totalLoanClients}
@@ -47,12 +49,23 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: Platform.select({ web: 40, default: 20 }),
     alignItems: 'center',
     justifyContent: 'center',
   },
+  contentMobile: {
+    padding: 16,
+  },
   cardRow: {
     flexDirection: 'row',
-    gap: 20,
+    gap: Platform.select({ web: 30, default: 15 }),
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    maxWidth: 1200,
+    width: '100%',
+  },
+  cardRowMobile: {
+    gap: 12,
+    paddingHorizontal: 10,
   },
 });

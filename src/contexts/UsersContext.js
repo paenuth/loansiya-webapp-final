@@ -1,181 +1,99 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
+import { userAPI } from '../services/api';
 
 export const UsersContext = createContext({
   users: [],
+  loading: false,
   addUser: (user) => {},
   updateUser: (user) => {},
+  refreshUsers: () => {},
 });
 
 export const UsersProvider = ({ children }) => {
-  const [users, setUsers] = useState([
-    {
-      id: '1-sample1',
-      username: 'officer1',
-      fullName: 'Maron Brown',
-      role: 'Officer',
-      status: 'Active',
-      password: 'password123',
-      createdAt: '2025-01-01T00:00:00.000Z'
-    },
-    {
-      id: '2-sample2',
-      username: 'officer2',
-      fullName: 'Vince Black',
-      role: 'Officer',
-      status: 'Active',
-      password: 'password123',
-      createdAt: '2025-01-01T00:00:00.000Z'
-    },
-    {
-      id: '3-sample3',
-      username: 'officer3',
-      fullName: 'Hane White',
-      role: 'Ops',
-      status: 'Active',
-      password: 'password123',
-      createdAt: '2025-01-01T00:00:00.000Z'
-    },
-    {
-      id: '4-sample4',
-      username: 'officer4',
-      fullName: 'Monke G',
-      role: 'Officer',
-      status: 'Disabled',
-      password: 'password123',
-      createdAt: '2025-01-01T00:00:00.000Z'
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch users from GCS on component mount
+  const refreshUsers = async () => {
+    try {
+      setLoading(true);
+      const fetchedUsers = await userAPI.getAllUsers();
+      setUsers(fetchedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      // Keep existing users if fetch fails
+    } finally {
+      setLoading(false);
     }
-  ]);
-
-  const addUser = (user) => {
-    // Validate required fields
-    if (!user.username || !user.fullName) {
-      throw new Error('Username and full name are required');
-    }
-
-    // Normalize input for validation
-    const normalizedUsername = user.username.toLowerCase().trim();
-    const normalizedFullName = user.fullName.toLowerCase().trim();
-
-    // Check if username already exists
-    const existingUsername = users.find(u => u.username.toLowerCase() === normalizedUsername);
-    if (existingUsername) {
-      throw new Error('Username already exists');
-    }
-
-    // Check if user with same name and role exists
-    const existingNameAndRole = users.find(
-      u => u.fullName.toLowerCase() === normalizedFullName &&
-          u.role === user.role
-    );
-    if (existingNameAndRole) {
-      throw new Error('A user with this name and role already exists');
-    }
-
-    // Generate unique ID with timestamp and random component
-    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Create a clean user object with proper structure
-    const newUser = {
-      id: uniqueId,
-      username: user.username.trim(),
-      fullName: user.fullName.trim(),
-      role: user.role,
-      status: user.status || 'Active',
-      password: user.password,
-      createdAt: new Date().toISOString()
-    };
-
-    setUsers(prevUsers => [...prevUsers, newUser]);
   };
 
-  const updateUser = (updatedUser) => {
-    if (!updatedUser.id) {
-      throw new Error('User ID is required for updating');
-    }
-    
-    // Find the target user by ID first
-    const targetUser = users.find(u => u.id === updatedUser.id);
-    if (!targetUser) {
-      throw new Error('User not found');
-    }
+  useEffect(() => {
+    refreshUsers();
+  }, []);
 
-    // For simple status updates, skip validation
-    if (Object.keys(updatedUser).length === 2 && updatedUser.status) {
-      setUsers(prevUsers =>
-        prevUsers.map(user => {
-          if (user.id === updatedUser.id) {
-            return {
-              ...user,
-              status: updatedUser.status,
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return user;
-        })
-      );
-      return;
-    }
-
-    // For other updates, perform validation
-    const normalizedUsername = updatedUser.username ? updatedUser.username.toLowerCase().trim() : targetUser.username.toLowerCase();
-    const normalizedFullName = updatedUser.fullName ? updatedUser.fullName.toLowerCase().trim() : targetUser.fullName.toLowerCase();
-
-    // Only check for username duplicates if username is being changed
-    if (updatedUser.username && updatedUser.username.trim() !== targetUser.username) {
-      const existingUser = users.find(u =>
-        u.id !== targetUser.id &&
-        u.username.toLowerCase() === normalizedUsername
-      );
-      if (existingUser) {
-        throw new Error('Username already exists');
+  const addUser = async (user) => {
+    try {
+      // Validate required fields
+      if (!user.username || !user.fullName || !user.role || !user.password) {
+        throw new Error('Username, full name, role, and password are required');
       }
-    }
 
-    // Check for duplicate name and role if those fields are being changed
-    if ((updatedUser.fullName && updatedUser.fullName.trim() !== targetUser.fullName) ||
-        (updatedUser.role && updatedUser.role !== targetUser.role)) {
-      const existingNameAndRole = users.find(u =>
-        u.id !== targetUser.id &&
-        u.fullName.toLowerCase() === normalizedFullName &&
-        u.role === (updatedUser.role || targetUser.role)
-      );
-      if (existingNameAndRole) {
-        throw new Error('A user with this name and role already exists');
+      setLoading(true);
+      const response = await userAPI.addUser(user);
+      
+      // Refresh users list to get updated data from GCS
+      await refreshUsers();
+      
+      return response.user;
+    } catch (error) {
+      console.error('Error adding user:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUser = async (updatedUser) => {
+    try {
+      if (!updatedUser.id && !updatedUser.username) {
+        throw new Error('User ID or username is required for updating');
       }
-    }
+      
+      const username = updatedUser.username || updatedUser.id;
+      
+      setLoading(true);
 
-    // Create a clean updated user object
-    const cleanUpdatedUser = {
-      ...targetUser, // Start with existing user data
-      ...updatedUser, // Apply updates
-      id: targetUser.id, // Ensure ID remains unchanged
-      updatedAt: new Date().toISOString()
-    };
-
-    // Trim string fields if they exist
-    if (cleanUpdatedUser.username) {
-      cleanUpdatedUser.username = cleanUpdatedUser.username.trim();
+      // For simple status updates
+      if (Object.keys(updatedUser).length === 2 && updatedUser.status) {
+        await userAPI.updateUserStatus(username, updatedUser.status);
+      } else {
+        // For full user updates
+        const updateData = {};
+        if (updatedUser.fullName) updateData.fullName = updatedUser.fullName;
+        if (updatedUser.role) updateData.role = updatedUser.role;
+        if (updatedUser.status) updateData.status = updatedUser.status;
+        if (updatedUser.password) updateData.password = updatedUser.password;
+        
+        await userAPI.updateUser(username, updateData);
+      }
+      
+      // Refresh users list to get updated data from GCS
+      await refreshUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-    if (cleanUpdatedUser.fullName) {
-      cleanUpdatedUser.fullName = cleanUpdatedUser.fullName.trim();
-    }
-
-    // Update the specific user
-    setUsers(prevUsers =>
-      prevUsers.map(user => {
-        if (user.id === targetUser.id) {
-          return cleanUpdatedUser;
-        }
-        return user;
-      })
-    );
   };
 
   return (
     <UsersContext.Provider value={{
       users,
+      loading,
       addUser,
       updateUser,
+      refreshUsers,
     }}>
       {children}
     </UsersContext.Provider>

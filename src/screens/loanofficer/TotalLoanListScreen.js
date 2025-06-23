@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Pressable, useWindowDimensions, Platform } from 'react-native';
 import { useLoan } from '../../contexts/LoanContext';
 
 const statuses = ['Pending', 'Approved', 'Declined'];
+const BREAKPOINT_MOBILE = 600;
+const BREAKPOINT_TABLET = 1024;
 
 export default function TotalLoanListScreen({ navigation, route }) {
   const [search, setSearch] = useState('');
@@ -86,103 +88,143 @@ export default function TotalLoanListScreen({ navigation, route }) {
     return matchesSearch && matchesFilter;
   });
 
+  const { width } = useWindowDimensions();
+  const isMobile = width < BREAKPOINT_MOBILE;
+  const isTablet = width >= BREAKPOINT_MOBILE && width < BREAKPOINT_TABLET;
+
   const renderItem = ({ item }) => (
-    <View style={styles.row}>
-      <View style={[styles.cellContainer, { flex: 1 }]}>
-        <Text style={styles.cell} numberOfLines={1}>{item.cid}</Text>
-      </View>
-      <View style={[styles.cellContainer, { flex: 3 }]}>
-        <Text style={styles.cell} numberOfLines={1}>{item.name}</Text>
-      </View>
-      <View style={[styles.cellContainer, { flex: 2 }]}>
-        <Text style={[
-          styles.cell,
-          styles.centerText,
-          (item.status && item.status.toLowerCase() === 'approved') && styles.approvedStatus,
-          (item.status && item.status.toLowerCase() === 'declined') && styles.declinedStatus,
-          (!item.status || item.status.toLowerCase() === 'pending') && styles.pendingStatus
-        ]} numberOfLines={1}>
-          {item.status ?
-            item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()
-            : 'Pending'}
-        </Text>
-      </View>
-      <View style={[styles.cellContainer, { flex: 2 }]}>
-        <Text style={styles.cell} numberOfLines={2}>{getLatestLoanRequest(item)}</Text>
-      </View>
-      <View style={[styles.cellContainer, { flex: 1, alignItems: 'center' }]}>
-        <TouchableOpacity
-          style={styles.viewBtn}
-          onPress={() => navigation.navigate('PendingLoanDetail', {
-            client: item,
-            backScreen: 'TotalLoanList'
-          })}
-        >
-          <Text>View</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    <TouchableOpacity
+      style={[
+        styles.row,
+        isMobile && styles.rowMobile,
+        isTablet && styles.rowTablet
+      ]}
+      onPress={() => isMobile && navigation.navigate('PendingLoanDetail', {
+        client: item,
+        backScreen: 'TotalLoanList'
+      })}
+    >
+      {isMobile ? (
+        // Mobile layout
+        <View style={styles.mobileContent}>
+          <Text style={styles.mobileName}>{item.name}</Text>
+          <Text style={styles.mobileCid}>CID: {item.cid}</Text>
+          <View style={styles.mobileStatusRow}>
+            <Text style={[
+              styles.mobileStatus,
+              (item.status && item.status.toLowerCase() === 'approved') && styles.approvedStatus,
+              (item.status && item.status.toLowerCase() === 'declined') && styles.declinedStatus,
+              (!item.status || item.status.toLowerCase() === 'pending') && styles.pendingStatus
+            ]}>
+              Status: {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() : 'Pending'}
+            </Text>
+            <Text style={styles.mobileDate}>Latest Updated: {getLatestLoanRequest(item)}</Text>
+          </View>
+        </View>
+      ) : (
+        // Desktop/Tablet layout
+        <>
+          <View style={[styles.cellContainer, isTablet ? styles.tabletCell : { flex: 1 }, styles.cidCell]}>
+            <Text style={styles.cell} numberOfLines={1}>{item.cid}</Text>
+          </View>
+          <View style={[styles.cellContainer, isTablet ? styles.tabletCell : { flex: 3 }, styles.nameCell]}>
+            <Text style={styles.cell} numberOfLines={1}>{item.name}</Text>
+          </View>
+          <View style={[styles.cellContainer, isTablet ? styles.tabletCell : { flex: 2 }, styles.statusCell]}>
+            <Text style={[
+              styles.cell,
+              styles.centerText,
+              (item.status && item.status.toLowerCase() === 'approved') && styles.approvedStatus,
+              (item.status && item.status.toLowerCase() === 'declined') && styles.declinedStatus,
+              (!item.status || item.status.toLowerCase() === 'pending') && styles.pendingStatus
+            ]} numberOfLines={1}>
+              {item.status ?
+                item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()
+                : 'Pending'}
+            </Text>
+          </View>
+          <View style={[styles.cellContainer, isTablet ? styles.tabletCell : { flex: 2 }, styles.updateCell]}>
+            <Text style={[styles.cell, isTablet && styles.tabletUpdateText]}>{getLatestLoanRequest(item)}</Text>
+          </View>
+          <View style={[styles.cellContainer, isTablet ? styles.tabletCell : { flex: 1 }, styles.actionCell]}>
+            <TouchableOpacity
+              style={styles.viewBtn}
+              onPress={() => navigation.navigate('PendingLoanDetail', {
+                client: item,
+                backScreen: 'TotalLoanList'
+              })}
+            >
+              <Text style={styles.viewBtnText}>View</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+    </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Total Loan List</Text>
+      <View style={[styles.header, isMobile && styles.headerMobile]}>
+        <Text style={[styles.title, isMobile && styles.titleMobile]}>Total Loan List</Text>
         <TouchableOpacity
-          style={styles.dashboardBtn}
+          style={[styles.dashboardBtn, isMobile && styles.dashboardBtnMobile]}
           onPress={() => navigation.navigate('LoanOfficerDashboard')}
         >
-          <Text style={styles.btnText}>Go to Dashboard</Text>
+          <Text style={[styles.btnText, isMobile && styles.btnTextMobile]}>Go to Dashboard</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search + Filter */}
-      <View style={styles.searchFilterRow}>
+      <View style={[styles.searchFilterRow, isMobile && styles.searchFilterRowMobile]}>
         <TextInput
-          style={styles.searchInput}
-          placeholder="Search"
+          style={[styles.searchInput, isMobile && styles.searchInputMobile]}
+          placeholder="Search by name or CID"
           value={search}
           onChangeText={setSearch}
         />
 
-        <View style={styles.filter}>
-          <Text style={styles.filterLabel}>Filter:</Text>
+        <View style={[styles.filter, isMobile && styles.filterMobile]}>
+          <Text style={[styles.filterLabel, isMobile && styles.filterLabelMobile]}>Filter:</Text>
           {statuses.map((status) => (
             <Pressable
               key={status}
               style={[
                 styles.filterOption,
                 filter === status && styles.activeFilter,
+                isMobile && styles.filterOptionMobile
               ]}
               onPress={() => setFilter(status)}
             >
               <Text style={[
                 styles.filterText,
-                filter === status && styles.activeFilterText
+                filter === status && styles.activeFilterText,
+                isMobile && styles.filterTextMobile
               ]}>{status}</Text>
             </Pressable>
           ))}
         </View>
       </View>
 
-      {/* Table Headers */}
-      <View style={styles.tableHeader}>
-        <View style={[styles.headerContainer, { flex: 1 }]}>
-          <Text style={styles.headerCell}>CID</Text>
+      {/* Table Headers - Only show on desktop/tablet */}
+      {!isMobile && (
+        <View style={styles.tableHeader}>
+          <View style={[styles.headerContainer, isTablet ? styles.tabletCell : { flex: 1 }, styles.cidCell]}>
+            <Text style={[styles.headerCell, isTablet && styles.tabletHeaderText]}>CID</Text>
+          </View>
+          <View style={[styles.headerContainer, isTablet ? styles.tabletCell : { flex: 3 }, styles.nameCell]}>
+            <Text style={[styles.headerCell, isTablet && styles.tabletHeaderText]}>Full Name</Text>
+          </View>
+          <View style={[styles.headerContainer, isTablet ? styles.tabletCell : { flex: 2 }, styles.statusCell]}>
+            <Text style={[styles.headerCell, styles.centerText, isTablet && styles.tabletHeaderText]}>Loan Status</Text>
+          </View>
+          <View style={[styles.headerContainer, isTablet ? styles.tabletCell : { flex: 2 }, styles.updateCell]}>
+            <Text style={[styles.headerCell, isTablet && styles.tabletHeaderText]}>Latest Update</Text>
+          </View>
+          <View style={[styles.headerContainer, isTablet ? styles.tabletCell : { flex: 1 }, styles.actionCell]}>
+            <Text style={[styles.headerCell, isTablet && styles.tabletHeaderText]}></Text>
+          </View>
         </View>
-        <View style={[styles.headerContainer, { flex: 3 }]}>
-          <Text style={styles.headerCell}>Full Name</Text>
-        </View>
-        <View style={[styles.headerContainer, { flex: 2 }]}>
-          <Text style={[styles.headerCell, styles.centerText]}>Loan Status</Text>
-        </View>
-        <View style={[styles.headerContainer, { flex: 2 }]}>
-          <Text style={styles.headerCell}>Latest Update</Text>
-        </View>
-        <View style={[styles.headerContainer, { flex: 1 }]}>
-          <Text style={styles.headerCell}></Text>
-        </View>
-      </View>
+      )}
 
       {/* List */}
       {isRefreshing && (
@@ -200,6 +242,119 @@ export default function TotalLoanListScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  // Tablet specific styles
+  rowTablet: {
+    paddingVertical: 16,
+  },
+  tabletCell: {
+    paddingHorizontal: 8,
+  },
+  tabletUpdateText: {
+    fontSize: 13,
+    lineHeight: 18,
+    flexWrap: 'wrap',
+    textAlign: 'left',
+    paddingRight: 4,
+    width: '100%',
+  },
+  // Cell width styles
+  cidCell: {
+    width: '15%',
+  },
+  nameCell: {
+    width: '25%',
+  },
+  statusCell: {
+    width: '15%',
+  },
+  updateCell: {
+    width: '35%',
+    paddingRight: 12,
+  },
+  actionCell: {
+    width: '10%',
+    alignItems: 'center',
+  },
+  // Mobile specific styles
+  headerMobile: {
+    flexDirection: 'column',
+    gap: 12,
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  titleMobile: {
+    fontSize: 18,
+  },
+  dashboardBtnMobile: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  btnTextMobile: {
+    fontSize: 14,
+  },
+  searchFilterRowMobile: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  searchInputMobile: {
+    minWidth: '100%',
+    padding: 8,
+    fontSize: 14,
+  },
+  filterMobile: {
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterLabelMobile: {
+    fontSize: 14,
+  },
+  filterOptionMobile: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  filterTextMobile: {
+    fontSize: 12,
+  },
+  rowMobile: {
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  mobileContent: {
+    flex: 1,
+  },
+  mobileName: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 4,
+    color: '#212529',
+  },
+  mobileCid: {
+    fontSize: 14,
+    color: '#6c757d',
+    marginBottom: 6,
+  },
+  mobileStatusRow: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  mobileStatus: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  mobileDate: {
+    fontSize: 12,
+    color: '#6c757d',
+    flexWrap: 'wrap',
+  },
+  viewBtnText: {
+    color: '#495057',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   cellContainer: {
     paddingHorizontal: 10,
     justifyContent: 'center',
@@ -215,7 +370,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   container: {
-    padding: 20,
+    padding: Platform.select({ web: 20, default: 16 }),
     backgroundColor: '#f6f6f6',
     flex: 1,
   },

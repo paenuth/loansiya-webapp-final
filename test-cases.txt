@@ -1,0 +1,81 @@
+TEST CASES FOR LOANSIYA WEB APPLICATION
+
+Test ID          Test Description                   Test Steps                                      Expected Result                               Actual Result       Pass/Fail
+--------         -----------------                  ----------                                      ---------------                               -------------       ---------
+
+AUTH-001         Login as Loan Officer            1. Navigate to LoginScreen                      Should redirect to LoanOfficerDashboard
+                                                  2. Enter username: "officer1"
+                                                  3. Enter password: "officer123"
+                                                  4. Click Login button
+
+AUTH-002         Login as Operations              1. Navigate to LoginScreen                      Should redirect to OpsDashboard
+                Manager                           2. Enter username: "opsmanager"
+                                                  3. Enter password: "ops123"
+                                                  4. Click Login button
+
+AUTH-003         Login as IT Admin                1. Navigate to LoginScreen                      Should redirect to IT Admin Dashboard
+                                                  2. Enter username: "admin"
+                                                  3. Enter password: "admin123"
+                                                  4. Click Login button
+
+DOC-001          View Application                 1. Login as Ops Manager                        Should display application documents
+                Documents                         2. Navigate to Client Profile                  in preview mode
+                                                  3. Click "View" on Application Documents
+
+DOC-002          View Signed                      1. Login as Ops Manager                        Should display signed documents or show
+                Documents                         2. Navigate to Client Profile                  message if not yet available
+                                                  3. Click "View" on Signed Documents
+
+LOAN-001         Loan Amount                      1. Login as Ops Manager                        Should update loan amount and show
+                Update                            2. Open pending loan details                   success message
+                                                  3. Click Edit
+                                                  4. Enter new valid amount
+                                                  5. Click Save Changes
+
+LOAN-002         Loan Approval                    1. Login as Ops Manager                        Should approve loan and:
+                Process                           2. Open pending loan details                    - Update loan status to "Approved"
+                                                  3. Review client profile                        - Generate notification
+                                                  4. Click "Approve" button                       - Redirect to pending list
+
+LOAN-003         Loan Decline                     1. Login as Ops Manager                        Should decline loan and:
+                Process                           2. Open pending loan details                    - Update loan status to "Declined"
+                                                  3. Click "Decline" button                       - Generate notification
+                                                                                                  - Redirect to pending list
+
+NOTIF-001        Notification                     1. Login as Loan Officer                       Should show notification with:
+                Display - Approval                2. Navigate to Notifications                    - Green checkmark
+                                                  3. Check for loan approval                      - CID number
+                                                  notification                                    - "APPROVED" status
+                                                                                                  - Timestamp
+
+NOTIF-002        Notification                     1. Login as Loan Officer                       Should show notification with:
+                Display - Decline                 2. Navigate to Notifications                    - Red X mark
+                                                  3. Check for loan decline                       - CID number
+                                                  notification                                    - "DECLINED" status
+                                                                                                  - Timestamp
+
+SCORE-001        Credit Score                     1. Login as Ops Manager                        Should display:
+                Calculation                       2. View client loan details                     - Credit score (300-850)
+                                                  3. Check credit score section                   - Risk category
+                                                                                                  - Recommendation
+
+SCORE-002        Risk Category                    1. Login as Ops Manager                        Should show risk category as:
+                Assessment                        2. View client loan details                     - "Exceptional" (800+)
+                                                  3. Check risk category based                    - "Very Good" (740-799)
+                                                  on score                                        - "Good" (670-739)
+                                                                                                  - "Fair" (580-669)
+                                                                                                  - "Poor" (<580)
+
+API-001          API Health Check                 1. Start application                           API endpoints should be accessible
+                                                  2. Check API connection                         at http://localhost:5600
+                                                  3. Attempt to fetch clients
+
+API-002          Document API                     1. Request client documents                    Should return documents with:
+                Response                          2. Check document response                      - Correct content type
+                                                  format                                          - Valid blob data
+                                                                                                  - Preview URL
+
+DASH-001         Dashboard Data                   1. Login as Loan Officer                       Should display:
+                Display                           2. View dashboard                              - Recent clients
+                                                                                                 - Pending loans
+                                                                                                 - Approved loans
