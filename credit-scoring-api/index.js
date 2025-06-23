@@ -511,77 +511,97 @@ app.get('/clients', async (req, res) => {
     const [contents] = await file.download();
     const clients = JSON.parse(contents.toString());
     
-    // Update each client with their latest loan application data
+    // Update each client with their latest loan application data and pending status
     const updatedClients = await Promise.all(clients.map(async (client) => {
       try {
-        // Only update clients that have pending loan applications
-        if (!client.loans?.loanHistory?.length > 0) {
-          return client; // No loan history, return as is
-        }
-
-        // Get the latest loan application data for THIS specific client
+        let hasPendingApplication = false;
+        let latestApplicationDate = null;
+        
+        // Check if client has a loan application that hasn't been processed
         const [files] = await bucket.getFiles({
           prefix: `clients/${client.cid}/`
         });
 
-        if (files.length === 0) {
-          return client; // No loan data, return as is
-        }
+        if (files.length > 0) {
+          // Get the latest date folder for THIS client
+          const datefolders = files
+            .map(file => {
+              const parts = file.name.split('/');
+              return parts.length >= 4 ? parts[2] : null;
+            })
+            .filter(Boolean)
+            .filter((value, index, self) => self.indexOf(value) === index)
+            .sort()
+            .reverse();
 
-        // Get the latest date folder for THIS client
-        const datefolders = files
-          .map(file => {
-            const parts = file.name.split('/');
-            return parts.length >= 4 ? parts[2] : null;
-          })
-          .filter(Boolean)
-          .filter((value, index, self) => self.indexOf(value) === index)
-          .sort()
-          .reverse();
+          if (datefolders.length > 0) {
+            const latestDate = datefolders[0];
+            const applicationFile = bucket.file(`clients/${client.cid}/${latestDate}/loan-application.json`);
+            const [applicationExists] = await applicationFile.exists();
 
-        if (datefolders.length === 0) {
-          return client; // No dated folders, return as is
-        }
+            if (applicationExists) {
+              // Check if this application has been processed (exists in approved/declined folders)
+              const approvedFile = bucket.file(`clients-approved/${client.cid}.json`);
+              const declinedFile = bucket.file(`clients-declined/${client.cid}.json`);
+              
+              const [approvedExists] = await approvedFile.exists();
+              const [declinedExists] = await declinedFile.exists();
+              
+              // If application exists but no decision file exists, it's pending
+              hasPendingApplication = !approvedExists && !declinedExists;
+              
+              // Store the latest application date from the folder name
+              if (hasPendingApplication) {
+                latestApplicationDate = latestDate;
+              }
+              
+              // If application exists, update loan history with correct amount and date
+              if (client.loans?.loanHistory?.length > 0) {
+                const [applicationContent] = await applicationFile.download();
+                const clientLoanData = JSON.parse(applicationContent.toString());
 
-        const latestDate = datefolders[0];
-        const applicationFile = bucket.file(`clients/${client.cid}/${latestDate}/loan-application.json`);
-        const [exists] = await applicationFile.exists();
+                // Only update if this application file belongs to the current client
+                if (clientLoanData.cid === client.cid) {
+                  const updatedLoanHistory = [...client.loans.loanHistory];
+                  const latestIndex = updatedLoanHistory.length - 1;
+                  
+                  // Update the latest loan request with data from THIS client's application file
+                  if (latestIndex >= 0) {
+                    updatedLoanHistory[latestIndex] = {
+                      ...updatedLoanHistory[latestIndex],
+                      amount: parseInt(clientLoanData.loanAmount),
+                      // Update dateApplied with the actual folder date if this is a pending application
+                      dateApplied: hasPendingApplication ? latestDate : updatedLoanHistory[latestIndex].dateApplied
+                    };
+                  }
 
-        if (!exists) {
-          return client; // No application file, return as is
-        }
-
-        const [applicationContent] = await applicationFile.download();
-        const clientLoanData = JSON.parse(applicationContent.toString());
-
-        // Only update if this application file belongs to the current client
-        if (clientLoanData.cid !== client.cid) {
-          console.warn(`CID mismatch: expected ${client.cid}, got ${clientLoanData.cid}`);
-          return client;
-        }
-
-        // Update the client's loan history with the correct amount from THEIR application
-        const updatedLoanHistory = [...client.loans.loanHistory];
-        const latestIndex = updatedLoanHistory.length - 1;
-        
-        // Update the latest loan request with the amount from THIS client's application file
-        if (latestIndex >= 0) {
-          updatedLoanHistory[latestIndex] = {
-            ...updatedLoanHistory[latestIndex],
-            amount: parseInt(clientLoanData.loanAmount) // Use the amount from THIS client's application file
-          };
+                  return {
+                    ...client,
+                    hasPendingApplication,
+                    latestApplicationDate,
+                    loans: {
+                      ...client.loans,
+                      loanHistory: updatedLoanHistory
+                    }
+                  };
+                }
+              }
+            }
+          }
         }
 
         return {
           ...client,
-          loans: {
-            ...client.loans,
-            loanHistory: updatedLoanHistory
-          }
+          hasPendingApplication,
+          latestApplicationDate
         };
       } catch (err) {
         console.error(`Error updating client ${client.cid}:`, err);
-        return client; // Return original client if there's an error
+        return {
+          ...client,
+          hasPendingApplication: false,
+          latestApplicationDate: null
+        }; // Return original client with false flag if there's an error
       }
     }));
     

@@ -139,6 +139,14 @@ try {
   console.log('Local state updated');
   
   setSuccess('Loan application declined');
+  
+  // Refresh client data to ensure the list updates
+  try {
+    await updateLoan(client.cid, { forceRefresh: true });
+  } catch (refreshError) {
+    console.error('Error refreshing client data:', refreshError);
+  }
+  
   setTimeout(() => {
     navigation.replace('OpsPendingList');
   }, 1000);
@@ -184,6 +192,14 @@ try {
   console.log('Local state updated');
   
   setSuccess('Loan application approved');
+  
+  // Refresh client data to ensure the list updates
+  try {
+    await updateLoan(client.cid, { forceRefresh: true });
+  } catch (refreshError) {
+    console.error('Error refreshing client data:', refreshError);
+  }
+  
   setTimeout(() => {
     navigation.replace('OpsPendingList');
   }, 1000);

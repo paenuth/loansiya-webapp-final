@@ -1,26 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import { useLoan } from '../../contexts/LoanContext';
 
 export default function OpsPendingListScreen({ navigation }) {
-  const { loans } = useLoan();
+  const { loans, fetchClients } = useLoan();
   const [search, setSearch] = useState('');
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
-  const filtered = loans.filter(
+  // Refresh client data when component mounts or when returning from approval/decline
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('OpsPendingListScreen focused, refreshing client data...');
+      fetchClients();
+    });
+
+    return unsubscribe;
+  }, [navigation, fetchClients]);
+
+  // Filter for clients with pending loan applications based on GCS data
+  const pendingLoans = loans.filter(item => {
+    // Use the hasPendingApplication flag from the backend
+    // This flag checks if there's a loan-application.json file in GCS
+    // that hasn't been processed (no corresponding file in clients-approved or clients-declined)
+    return item.hasPendingApplication === true;
+  });
+
+  const filtered = pendingLoans.filter(
     item =>
       item.name.toLowerCase().includes(search.toLowerCase()) ||
       item.cid.includes(search)
   );
 
   const getLatestLoanRequest = (item) => {
+    // For pending applications, use the actual GCS folder date (latest application date)
+    if (item.hasPendingApplication && item.latestApplicationDate) {
+      // Convert YYYY-MM-DD format to a more readable format
+      const date = new Date(item.latestApplicationDate);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: '2-digit'
+      });
+    }
+    
+    // Fallback to loan history if no pending application date
     if (item.loans?.loanHistory && item.loans.loanHistory.length > 0) {
-      const latest = [...item.loans.loanHistory].sort((a, b) => 
+      const latest = [...item.loans.loanHistory].sort((a, b) =>
         new Date(b.dateApplied) - new Date(a.dateApplied)
       )[0];
       return latest.dateApplied;
     }
+    
     return 'No date';
   };
 

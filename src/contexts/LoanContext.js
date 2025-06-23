@@ -105,6 +105,17 @@ export function LoanProvider({ children }) {
         throw new Error(`Loan not found for CID: ${cid}`);
       }
 
+      // If forceRefresh is true, skip local update and go straight to refresh
+      if (updates.forceRefresh) {
+        console.log('Force refreshing client data for CID:', cid);
+        const updatedClient = await refreshClientData(cid);
+        
+        // Also refresh all clients to ensure the list is up to date
+        await fetchClients();
+        
+        return updatedClient;
+      }
+
       // Update local state
       setLoans(prevLoans =>
         prevLoans.map(l =>
@@ -199,6 +210,7 @@ export function LoanProvider({ children }) {
       updateLoan,
       updateLoanAmount,
       refreshClientData,
+      fetchClients, // Export this so components can manually refresh the client list
       notifications,
       unreadCount,
       markNotificationsAsRead,
