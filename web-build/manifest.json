@@ -1,0 +1,9 @@
+{
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "lang": "en",
+  "name": "LoanSiya Web App",
+  "short_name": "LoanSiya Web App",
+  "start_url": "/?utm_source=web_app_manifest",
+  "orientation": "portrait"
+}
