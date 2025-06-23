@@ -1,4 +1,39 @@
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5600';
+import Constants from 'expo-constants';
+
+// Get API URL with multiple fallback strategies for different environments
+const getApiUrl = () => {
+  // Debug logging
+  console.log('Environment debug info:', {
+    NODE_ENV: process.env.NODE_ENV,
+    REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+    expoConfig: Constants.expoConfig?.extra?.REACT_APP_API_URL,
+    isProduction: process.env.NODE_ENV === 'production'
+  });
+  
+  // For production builds, prioritize environment variables
+  if (process.env.NODE_ENV === 'production' && process.env.REACT_APP_API_URL) {
+    console.log('Using production env var:', process.env.REACT_APP_API_URL);
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // For Expo builds, use Constants
+  if (Constants.expoConfig?.extra?.REACT_APP_API_URL) {
+    console.log('Using Expo config:', Constants.expoConfig.extra.REACT_APP_API_URL);
+    return Constants.expoConfig.extra.REACT_APP_API_URL;
+  }
+  
+  // Fallback to environment variable
+  if (process.env.REACT_APP_API_URL) {
+    console.log('Using env var fallback:', process.env.REACT_APP_API_URL);
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Development fallback
+  console.log('Using localhost fallback');
+  return 'http://localhost:5600';
+};
+
+export const API_BASE_URL = getApiUrl();
 
 // Authentication API endpoints
 export const authAPI = {

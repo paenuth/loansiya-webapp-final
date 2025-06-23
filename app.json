@@ -23,7 +23,11 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "webpack"
+    },
+    "extra": {
+      "REACT_APP_API_URL": "https://loansiya-api-38767014727.asia-southeast1.run.app"
     }
   }
 }

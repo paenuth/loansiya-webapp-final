@@ -122,4 +122,4 @@ Install also the "npm install pdfkit" to produce the pdf file
 2. npm install pdfkit
 ```bash
 npm start
-```
+```"// Force rebuild" 
