@@ -62,7 +62,7 @@ export default function OpsPendingLoanDetailScreen({ navigation, route }) {
 
   const fetchLoanData = async (cid) => {
     try {
-      const response = await fetch(`http://localhost:5600/client-loan-data/${cid}`);
+      const response = await fetch(`${API_BASE_URL}/client-loan-data/${cid}`);
       if (!response.ok) {
         throw new Error('Failed to fetch loan data');
       }
@@ -121,7 +121,7 @@ try {
   
   // First check if API is accessible
   try {
-    const healthCheck = await fetch('http://localhost:5600/clients');
+    const healthCheck = await fetch(`${API_BASE_URL}/clients`);
     if (!healthCheck.ok) {
       throw new Error('API server is not responding properly');
     }
@@ -156,7 +156,7 @@ try {
       
       // First check if API is accessible
       try {
-        const healthCheck = await fetch('http://localhost:5600/clients');
+        const healthCheck = await fetch(`${API_BASE_URL}/clients`);
         if (!healthCheck.ok) {
           throw new Error('API server is not responding properly');
         }

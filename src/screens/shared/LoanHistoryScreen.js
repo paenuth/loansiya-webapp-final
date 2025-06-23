@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { useLoan } from '../../contexts/LoanContext';
 import { calculateDueDate } from '../../utils/dateFormatters';
+import { API_BASE_URL } from '../../services/api';
 
 const BREAKPOINT_TABLET = 768;
 export default function LoanHistoryScreen({ route, navigation }) {
@@ -22,7 +23,7 @@ export default function LoanHistoryScreen({ route, navigation }) {
       if (!clientId) return;
       
       try {
-        const response = await fetch(`http://localhost:5600/client-loan-data/${clientId}`);
+        const response = await fetch(`${API_BASE_URL}/client-loan-data/${clientId}`);
         if (response.ok) {
           const data = await response.json();
           setLoanTermsData(data);

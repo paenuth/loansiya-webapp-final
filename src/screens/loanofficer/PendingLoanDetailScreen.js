@@ -55,7 +55,7 @@ export default function PendingLoanDetailScreen({ navigation, route }) {
     try {
       // First check if API is accessible
       try {
-        const healthCheck = await fetch('http://localhost:5600/clients');
+        const healthCheck = await fetch(`${API_BASE_URL}/clients`);
         if (!healthCheck.ok) {
           throw new Error('API server is not responding properly');
         }
