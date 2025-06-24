@@ -562,11 +562,12 @@ app.get('/clients', async (req, res) => {
                 }
                 
                 // Check if this application date already exists in loan history
-                const existingApplication = metricsData.loanHistory.find(loan =>
+                // Look for ANY entry with this date, regardless of status
+                const existingApplications = metricsData.loanHistory.filter(loan =>
                   loan.dateApplied === latestDate
                 );
                 
-                if (!existingApplication) {
+                if (existingApplications.length === 0) {
                   // This is a NEW application - add it to metrics as "pending"
                   console.log(`✅ Adding new pending application for client ${client.cid} on ${latestDate}`);
                   
@@ -585,13 +586,17 @@ app.get('/clients', async (req, res) => {
                   hasPendingApplication = true;
                   latestApplicationDate = latestDate;
                 } else {
-                  // Application already exists in history - check its status
-                  if (existingApplication.status === "pending") {
+                  // Application date already exists - check if any are still pending
+                  const pendingApplication = existingApplications.find(app => app.status === "pending");
+                  
+                  if (pendingApplication) {
                     console.log(`📋 Client ${client.cid} has existing pending application on ${latestDate}`);
                     hasPendingApplication = true;
                     latestApplicationDate = latestDate;
                   } else {
-                    console.log(`✅ Client ${client.cid} application on ${latestDate} already processed: ${existingApplication.status}`);
+                    // All applications for this date have been processed
+                    const latestStatus = existingApplications[existingApplications.length - 1].status;
+                    console.log(`✅ Client ${client.cid} application on ${latestDate} already processed: ${latestStatus}`);
                     hasPendingApplication = false;
                   }
                 }
@@ -1050,21 +1055,32 @@ app.post('/loan/:cid/decision', async (req, res) => {
     const [metricsContent] = await metricsFile.download();
     const metricsData = JSON.parse(metricsContent.toString());
 
-    // Add new loan history entry to metrics
-    const newMetricsHistory = {
-      dateApplied: now.toISOString().split('T')[0], // YYYY-MM-DD format
-      status: decision === 'approved' ? 'Approved' : 'Declined'
-    };
+    // Update existing pending entry in metrics instead of adding new one
+    const applicationDateStr = latestDate; // Use the actual application date, not today's date
+    
+    // Find and update the pending entry for this specific application date
+    const pendingEntryIndex = metricsData.loanHistory.findIndex(loan =>
+      loan.dateApplied === applicationDateStr && loan.status === "pending"
+    );
+    
+    if (pendingEntryIndex !== -1) {
+      // Update the existing pending entry
+      metricsData.loanHistory[pendingEntryIndex].status = decision === 'approved' ? 'Approved' : 'Declined';
+      console.log(`✅ Updated existing pending entry for ${applicationDateStr} to ${decision}`);
+    } else {
+      // Fallback: If no pending entry found, add new entry (shouldn't normally happen)
+      const newMetricsHistory = {
+        dateApplied: applicationDateStr,
+        status: decision === 'approved' ? 'Approved' : 'Declined'
+      };
+      metricsData.loanHistory.push(newMetricsHistory);
+      console.log(`⚠️  No pending entry found, added new entry for ${applicationDateStr}`);
+    }
 
-    const updatedMetricsData = {
-      ...metricsData,
-      loanHistory: [...metricsData.loanHistory, newMetricsHistory]
-    };
-
-    await metricsFile.save(JSON.stringify(updatedMetricsData, null, 2), {
+    await metricsFile.save(JSON.stringify(metricsData, null, 2), {
       contentType: 'application/json'
     });
-    console.log('Updated metrics raw file with new loan history');
+    console.log('Updated metrics raw file with decision status');
 
     // Create the decision object with current timestamp and approved amount
     const decisionData = {

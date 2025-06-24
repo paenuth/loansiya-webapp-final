@@ -46,17 +46,51 @@ export default function TotalLoanListScreen({ navigation, route }) {
   };
 
   const getLatestLoanRequest = (item) => {
+    // Check current status first
+    const currentStatus = item.status ? item.status.toLowerCase() : 'pending';
+    
+    // For pending applications, return blank
+    if (currentStatus === 'pending' || !item.status) {
+      return '';
+    }
+    
     // Find most recent notification for this client's loan from ops manager
     const clientNotifications = notifications
       .filter(n => n.cid === item.cid &&
                   (n.type === 'status_change' || n.type === 'amount_change'))
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    // If we have a notification from ops manager, use that
+    // If we have notifications from ops manager, use those for formatting
     if (clientNotifications.length > 0) {
       const latestNotification = clientNotifications[0];
       const formattedDate = formatDate(latestNotification.timestamp);
-      return `${formattedDate} (${latestNotification.status || 'Amount updated'} by Ops Manager)`;
+      
+      if (currentStatus === 'approved') {
+        // Check if there was an actual amount change by comparing original vs approved amount
+        // Look for the latest loan in loan history to get original and approved amounts
+        if (item.loans?.loanHistory && item.loans.loanHistory.length > 0) {
+          const latestLoan = item.loans.loanHistory[item.loans.loanHistory.length - 1];
+          const originalAmount = parseInt(latestLoan.amount) || 0;
+          
+          // Try to find approved amount from notifications or use original amount as fallback
+          let approvedAmount = originalAmount;
+          const approvalNotification = clientNotifications.find(n => n.type === 'status_change' && n.status === 'Approved');
+          if (approvalNotification && approvalNotification.approvedAmount) {
+            approvedAmount = parseInt(approvalNotification.approvedAmount) || originalAmount;
+          }
+          
+          // Only show "Amount Edited" if amounts actually differ
+          if (originalAmount !== approvedAmount) {
+            return `Approved and Amount Edited by OM (${formattedDate})`;
+          } else {
+            return `Approved by OM (${formattedDate})`;
+          }
+        } else {
+          return `Approved by OM (${formattedDate})`;
+        }
+      } else if (currentStatus === 'declined') {
+        return `Declined by OM (${formattedDate})`;
+      }
     }
     
     // Fall back to loan history if no ops manager notifications
@@ -68,11 +102,15 @@ export default function TotalLoanListScreen({ navigation, route }) {
       const latest = sortedHistory[0];
       const date = latest.dateUpdated || latest.dateApplied;
       const formattedDate = formatDate(date);
-      const action = latest.status ? ` (${latest.status})` : '';
-      return `${formattedDate}${action}`;
+      
+      if (currentStatus === 'approved') {
+        return `Approved by OM (${formattedDate})`;
+      } else if (currentStatus === 'declined') {
+        return `Declined by OM (${formattedDate})`;
+      }
     }
     
-    return 'No date';
+    return '';
   };
 
   const filteredLoans = loans.filter((loan) => {
@@ -120,7 +158,7 @@ export default function TotalLoanListScreen({ navigation, route }) {
             ]}>
               Status: {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() : 'Pending'}
             </Text>
-            <Text style={styles.mobileDate}>Latest Updated: {getLatestLoanRequest(item)}</Text>
+            <Text style={styles.mobileDate}>Loan Update: {getLatestLoanRequest(item)}</Text>
           </View>
         </View>
       ) : (
@@ -220,7 +258,7 @@ export default function TotalLoanListScreen({ navigation, route }) {
             <Text style={[styles.headerCell, styles.centerText, isTablet && styles.tabletHeaderText]}>Loan Status</Text>
           </View>
           <View style={[styles.headerContainer, isTablet ? styles.tabletCell : { flex: 2 }, styles.updateCell]}>
-            <Text style={[styles.headerCell, isTablet && styles.tabletHeaderText]}>Latest Update</Text>
+            <Text style={[styles.headerCell, isTablet && styles.tabletHeaderText]}>Loan Update</Text>
           </View>
           <View style={[styles.headerContainer, isTablet ? styles.tabletCell : { flex: 1 }, styles.actionCell]}>
             <Text style={[styles.headerCell, isTablet && styles.tabletHeaderText]}></Text>
