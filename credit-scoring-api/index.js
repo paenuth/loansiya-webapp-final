@@ -517,7 +517,17 @@ app.get('/clients', async (req, res) => {
         let hasPendingApplication = false;
         let latestApplicationDate = null;
         
-        // Check if client has a loan application that hasn't been processed
+        // BUSINESS RULE: If client has outstanding balance, they can't apply for new loans
+        if (client.loanBalance && client.loanBalance.amount > 0) {
+          console.log(`❌ Client ${client.cid} has outstanding balance: ₱${client.loanBalance.amount} - cannot apply for new loan`);
+          return {
+            ...client,
+            hasPendingApplication: false,
+            latestApplicationDate: null
+          };
+        }
+        
+        // Check if client has a loan application that needs to be added to metrics
         const [files] = await bucket.getFiles({
           prefix: `clients/${client.cid}/`
         });
@@ -540,23 +550,60 @@ app.get('/clients', async (req, res) => {
             const [applicationExists] = await applicationFile.exists();
 
             if (applicationExists) {
-              // Check if this application has been processed (exists in approved/declined folders)
-              const approvedFile = bucket.file(`clients-approved/${client.cid}.json`);
-              const declinedFile = bucket.file(`clients-declined/${client.cid}.json`);
-              
-              const [approvedExists] = await approvedFile.exists();
-              const [declinedExists] = await declinedFile.exists();
-              
-              // If application exists but no decision file exists, it's pending
-              hasPendingApplication = !approvedExists && !declinedExists;
-              
-              // Store the latest application date from the folder name
-              if (hasPendingApplication) {
-                latestApplicationDate = latestDate;
+              try {
+                // Load client metrics to check if this application is already in loan history
+                const metricsFile = bucket.file(`client-metrics/${client.cid}-raw.json`);
+                const [metricsExists] = await metricsFile.exists();
+                
+                let metricsData = { loanHistory: [] };
+                if (metricsExists) {
+                  const [metricsContent] = await metricsFile.download();
+                  metricsData = JSON.parse(metricsContent.toString());
+                }
+                
+                // Check if this application date already exists in loan history
+                const existingApplication = metricsData.loanHistory.find(loan =>
+                  loan.dateApplied === latestDate
+                );
+                
+                if (!existingApplication) {
+                  // This is a NEW application - add it to metrics as "pending"
+                  console.log(`✅ Adding new pending application for client ${client.cid} on ${latestDate}`);
+                  
+                  const newHistoryEntry = {
+                    dateApplied: latestDate,
+                    status: "pending"
+                  };
+                  
+                  metricsData.loanHistory.push(newHistoryEntry);
+                  
+                  // Save updated metrics back to GCS
+                  await metricsFile.save(JSON.stringify(metricsData, null, 2), {
+                    contentType: 'application/json'
+                  });
+                  
+                  hasPendingApplication = true;
+                  latestApplicationDate = latestDate;
+                } else {
+                  // Application already exists in history - check its status
+                  if (existingApplication.status === "pending") {
+                    console.log(`📋 Client ${client.cid} has existing pending application on ${latestDate}`);
+                    hasPendingApplication = true;
+                    latestApplicationDate = latestDate;
+                  } else {
+                    console.log(`✅ Client ${client.cid} application on ${latestDate} already processed: ${existingApplication.status}`);
+                    hasPendingApplication = false;
+                  }
+                }
+                
+              } catch (metricsError) {
+                console.error(`Error processing metrics for client ${client.cid}:`, metricsError);
+                // If we can't read/update metrics, assume it's not pending to be safe
+                hasPendingApplication = false;
               }
               
-              // If application exists, update loan history with correct amount and date
-              if (client.loans?.loanHistory?.length > 0) {
+              // Update loan history in client data with correct amount and date if pending
+              if (hasPendingApplication && client.loans?.loanHistory?.length > 0) {
                 const [applicationContent] = await applicationFile.download();
                 const clientLoanData = JSON.parse(applicationContent.toString());
 
@@ -570,8 +617,7 @@ app.get('/clients', async (req, res) => {
                     updatedLoanHistory[latestIndex] = {
                       ...updatedLoanHistory[latestIndex],
                       amount: parseInt(clientLoanData.loanAmount),
-                      // Update dateApplied with the actual folder date if this is a pending application
-                      dateApplied: hasPendingApplication ? latestDate : updatedLoanHistory[latestIndex].dateApplied
+                      dateApplied: latestDate
                     };
                   }
 

@@ -10,12 +10,14 @@ export default function TotalLoanListScreen({ navigation, route }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Pending');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { loans, refreshClientData, notifications } = useLoan();
+  const { loans, fetchClients, notifications } = useLoan();
 
   const refreshAllLoans = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all(loans.map(loan => refreshClientData(loan.cid)));
+      // Use fetchClients to get full client data with hasPendingApplication flags
+      // This is the same method OpsPendingList uses - ensures consistency
+      await fetchClients();
     } catch (err) {
       console.error('Error refreshing loans:', err);
     } finally {
@@ -81,9 +83,9 @@ export default function TotalLoanListScreen({ navigation, route }) {
     const currentStatus = loan.status ? loan.status.toLowerCase() : 'pending';
     const currentFilter = filter.toLowerCase();
 
-    const matchesFilter =
-      (currentFilter === 'pending' && (!loan.status || currentStatus === 'pending')) ||
-      (currentStatus === currentFilter);
+    const matchesFilter = currentFilter === 'pending'
+      ? loan.hasPendingApplication === true  // Use same logic as OpsPendingList
+      : (currentStatus === currentFilter);   // Keep existing logic for approved/declined
 
     return matchesSearch && matchesFilter;
   });

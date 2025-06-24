@@ -10,9 +10,10 @@ export default function OpsDashboardScreen({ navigation }) {
   const isMobile = width < 768;
   
   const totalClients = loans.length;
+  
+  // Use the new hasPendingApplication flag to match OpsPendingList logic
   const totalPending = loans.filter(loan =>
-    loan.status === 'Pending' ||
-    !loan.status
+    loan.hasPendingApplication === true
   ).length;
 
   return (
