@@ -71,11 +71,9 @@ export default function OpsPendingListScreen({ navigation }) {
           <View style={styles.mobileStatusRow}>
             <Text style={[
               styles.mobileStatus,
-              (item.status && item.status.toLowerCase() === 'approved') && styles.approvedStatus,
-              (item.status && item.status.toLowerCase() === 'declined') && styles.declinedStatus,
-              (!item.status || item.status.toLowerCase() === 'pending') && styles.pendingStatus
+              styles.pendingStatus  // Always show pending style for items in pending list
             ]}>
-              {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() : 'Pending'}
+              Pending
             </Text>
             <Text style={styles.mobileDate}>{getLatestLoanRequest(item)}</Text>
           </View>
@@ -88,11 +86,9 @@ export default function OpsPendingListScreen({ navigation }) {
           <Text style={[
             styles.cell,
             { flex: 2, textAlign: 'center' },
-            (item.status && item.status.toLowerCase() === 'approved') && styles.approvedStatus,
-            (item.status && item.status.toLowerCase() === 'declined') && styles.declinedStatus,
-            (!item.status || item.status.toLowerCase() === 'pending') && styles.pendingStatus
+            styles.pendingStatus  // Always show pending style for items in pending list
           ]}>
-            {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() : 'Pending'}
+            Pending
           </Text>
           <Text style={[styles.cell, { flex: 3, textAlign: 'center' }]}>{getLatestLoanRequest(item)}</Text>
           <View style={{ flex: 1, alignItems: 'center' }}>

@@ -92,6 +92,15 @@ export function LoanProvider({ children }) {
     }
   };
 
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await clientAPI.notifications.getNotifications();
+      setUnreadCount(response.filter(n => !n.read).length);
+    } catch (err) {
+      console.error('Failed to fetch unread count:', err);
+    }
+  };
+
   const clearNotifications = () => {
     // Note: This is now just a visual clear, as we're keeping notifications in the backend
     setNotifications([]);
@@ -125,17 +134,9 @@ export function LoanProvider({ children }) {
         )
       );
 
-      // Create notification in backend if status changed
-      if (updates.status === 'Approved' || updates.status === 'Declined') {
-        await addNotification({
-          cid,
-          clientName: loan.name,
-          type: 'status_change',
-          status: updates.status,
-          message: `Loan request for client ${loan.name} has been ${updates.status.toLowerCase()} by Operations Manager`,
-          recipientRole: 'loan_officer' // Specify that this is for loan officers
-        });
-      }
+      // ✅ REMOVED: Backend now handles all notification creation automatically
+      // This was causing 409 conflicts when frontend and backend both tried to create notifications
+      // The backend loan decision endpoint now creates notifications properly
 
       // Refresh client data to ensure consistency
       const updatedClient = await refreshClientData(cid);
@@ -215,7 +216,8 @@ export function LoanProvider({ children }) {
       unreadCount,
       markNotificationsAsRead,
       clearNotifications,
-      fetchNotifications // Export this so components can manually refresh if needed
+      fetchNotifications, // Export this so components can manually refresh if needed
+      fetchUnreadCount // Export this to refresh just the unread count
     }}>
       {children}
     </LoanContext.Provider>

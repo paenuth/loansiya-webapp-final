@@ -129,20 +129,28 @@ try {
     throw new Error('API server is not running. Please start the credit-scoring-api server first.');
   }
 
-  const result = await clientAPI.processLoanDecision(client.cid, 'declined');
+  // Include loan data to preserve original request amount and details
+  const declineData = {
+    approvedAmount: loanData?.approvedAmount,  // ✅ FIXED: Send the amount displayed on screen for declined loans
+    loanAmount: loanData?.loanAmount || loanData?.approvedAmount,
+    purpose: loanData?.purpose,
+    description: loanData?.description,
+    term: loanData?.term,
+    repaymentMethod: loanData?.repaymentMethod,
+    interestRate: loanData?.interestRate || 5.0
+  };
+
+  console.log('Declining with loan data:', declineData);
+  const result = await clientAPI.processLoanDecision(client.cid, 'declined', declineData);
   console.log('API Response:', result);
-  
-  await updateLoan(client.cid, {
-    status: 'Declined',
-    decidedAt: new Date().toISOString()
-  });
-  console.log('Local state updated');
   
   setSuccess('Loan application declined');
   
-  // Refresh client data to ensure the list updates
+  // ✅ FIXED: Single refresh call instead of double updateLoan calls
+  // This prevents state confusion and race conditions
   try {
     await updateLoan(client.cid, { forceRefresh: true });
+    console.log('Client data refreshed successfully');
   } catch (refreshError) {
     console.error('Error refreshing client data:', refreshError);
   }
@@ -184,18 +192,13 @@ try {
       });
       console.log('API Response:', result);
   
-  await updateLoan(client.cid, {
-    status: 'Approved',
-    decidedAt: new Date().toISOString(),
-    approvedAmount: currentApprovedAmount
-  });
-  console.log('Local state updated');
-  
   setSuccess('Loan application approved');
   
-  // Refresh client data to ensure the list updates
+  // ✅ FIXED: Single refresh call instead of double updateLoan calls
+  // This prevents state confusion and race conditions
   try {
     await updateLoan(client.cid, { forceRefresh: true });
+    console.log('Client data refreshed successfully');
   } catch (refreshError) {
     console.error('Error refreshing client data:', refreshError);
   }

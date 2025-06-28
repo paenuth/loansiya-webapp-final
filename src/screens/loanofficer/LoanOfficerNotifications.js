@@ -6,10 +6,11 @@ export default function LoanOfficerNotifications({ navigation }) {
   const { notifications, markNotificationsAsRead, loans, refreshClientData } = useLoan();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    // Mark notifications as read when screen is opened
-    markNotificationsAsRead();
-  }, []);
+  // Remove auto-mark as read when screen opens since we now handle it via bell click
+  // useEffect(() => {
+  //   // Mark notifications as read when screen is opened
+  //   markNotificationsAsRead();
+  // }, []);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {

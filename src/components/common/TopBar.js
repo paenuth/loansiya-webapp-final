@@ -1,11 +1,39 @@
 import React, { useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
+import { clientAPI } from '../../services/api';
 
-export default function TopBar({ navigation, role, showNotifications, unreadCount }) {
+export default function TopBar({ navigation, role, showNotifications, unreadCount, notificationScreen = 'LoanOfficerNotifications', onNotificationRead }) {
   const { logout } = useContext(AuthContext);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+
+  const handleNotificationPress = async () => {
+    // Auto-mark all notifications as read when bell is clicked
+    if (unreadCount > 0) {
+      try {
+        // Determine the role based on the notification screen
+        const userRole = notificationScreen === 'OpsNotifications' ? 'ops_manager' : 'loan_officer';
+        
+        // Get all notifications to find unread ones
+        const notifications = await clientAPI.notifications.getNotifications(userRole);
+        const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+        
+        if (unreadIds.length > 0) {
+          await clientAPI.notifications.markAsRead(unreadIds, userRole);
+          // Notify parent component to update unread count
+          if (onNotificationRead) {
+            onNotificationRead();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to auto-mark notifications as read:', error);
+      }
+    }
+    
+    // Navigate to notifications screen
+    navigation.navigate(notificationScreen);
+  };
 
   return (
     <View style={styles.topbar}>
@@ -20,7 +48,7 @@ export default function TopBar({ navigation, role, showNotifications, unreadCoun
         {showNotifications && (
           <TouchableOpacity
             style={styles.notificationContainer}
-            onPress={() => navigation.navigate('LoanOfficerNotifications')}
+            onPress={handleNotificationPress}
           >
             <Text style={[styles.icon, isMobile && styles.iconMobile]}>🔔</Text>
             {unreadCount > 0 && (

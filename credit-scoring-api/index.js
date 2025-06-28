@@ -500,6 +500,315 @@ app.put('/users/:username', async (req, res) => {
 });
 
 // ========================
+// FILE LOCKING MECHANISM
+// ========================
+
+// Simple in-memory file lock to prevent race conditions
+const fileLocks = new Map();
+
+async function acquireFileLock(filepath, timeout = 5000) {
+  const startTime = Date.now();
+  
+  while (fileLocks.has(filepath)) {
+    if (Date.now() - startTime > timeout) {
+      throw new Error(`Timeout acquiring lock for ${filepath}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+  }
+  
+  fileLocks.set(filepath, Date.now());
+  console.log(`🔒 Acquired lock for ${filepath}`);
+}
+
+function releaseFileLock(filepath) {
+  fileLocks.delete(filepath);
+  console.log(`🔓 Released lock for ${filepath}`);
+}
+
+// ========================
+// NOTIFICATION HELPER FUNCTIONS
+// ========================
+
+// Helper function to create ops manager notification
+async function createOpsManagerNotification(client, applicationDate) {
+  try {
+    const notificationFile = bucket.file('notifications/notifications-OM.json');
+    
+    // Create file if it doesn't exist
+    const [notifExists] = await notificationFile.exists();
+    if (!notifExists) {
+      await notificationFile.save(JSON.stringify([]), {
+        contentType: 'application/json',
+      });
+    }
+
+    // Get existing notifications
+    const [notifContents] = await notificationFile.download();
+    const notifications = JSON.parse(notifContents.toString());
+    
+    // PERFECT: Check if notification already exists for this specific application
+    // One notification per client per application date (regardless of read status)
+    const existingNotification = notifications.find(n =>
+      n.cid === client.cid &&
+      n.type === 'new_application' &&
+      n.applicationDate === applicationDate // Check for specific application date
+    );
+    
+    if (existingNotification) {
+      console.log(`📢 Notification already exists for client ${client.cid} application on ${applicationDate}, skipping duplicate`);
+      return;
+    }
+
+    // Create notification data with application date
+    const notificationData = {
+      cid: client.cid,
+      clientName: client.name,
+      type: 'new_application',
+      message: `New loan application submitted by ${client.name} (CID: ${client.cid})`,
+      recipientRole: 'ops_manager',
+      applicationDate: applicationDate // Store the application date for future duplicate checking
+    };
+
+    // Add new notification
+    const notification = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notificationData
+    };
+    
+    notifications.unshift(notification);
+    
+    // Save updated notifications
+    await notificationFile.save(JSON.stringify(notifications, null, 2), {
+      contentType: 'application/json',
+    });
+    
+    console.log(`📢 Created ops manager notification for new application from ${client.name} on ${applicationDate}`);
+  } catch (notifError) {
+    console.error(`Error creating notification for client ${client.cid}:`, notifError);
+    // Don't fail the whole process if notification creation fails
+  }
+}
+
+// Helper function to create reapplication notification (prevents duplicates)
+async function createReapplicationNotification(client, applicationDate) {
+  try {
+    const notificationFile = bucket.file('notifications/notifications-OM.json');
+    
+    // Create file if it doesn't exist
+    const [notifExists] = await notificationFile.exists();
+    if (!notifExists) {
+      await notificationFile.save(JSON.stringify([]), {
+        contentType: 'application/json',
+      });
+    }
+
+    // Get existing notifications
+    const [notifContents] = await notificationFile.download();
+    const notifications = JSON.parse(notifContents.toString());
+    
+    // Check if reapplication notification already exists for this specific date
+    // Look for either regular application or reapplication notification for this date
+    const existingNotification = notifications.find(n =>
+      n.cid === client.cid &&
+      n.type === 'new_application' &&
+      n.applicationDate === applicationDate
+    );
+    
+    if (existingNotification) {
+      // Update existing notification to mark it as a reapplication
+      existingNotification.message = `Reapplication: ${client.name} (CID: ${client.cid}) submitted new documents after being declined`;
+      existingNotification.isReapplication = true;
+      existingNotification.timestamp = new Date().toISOString(); // Update timestamp
+      existingNotification.read = false; // Mark as unread for ops manager attention
+      
+      // Save updated notifications
+      await notificationFile.save(JSON.stringify(notifications, null, 2), {
+        contentType: 'application/json',
+      });
+      
+      console.log(`📢 Updated existing notification for reapplication: client ${client.cid} on ${applicationDate}`);
+    } else {
+      // Create new reapplication notification
+      const notificationData = {
+        cid: client.cid,
+        clientName: client.name,
+        type: 'new_application',
+        message: `Reapplication: ${client.name} (CID: ${client.cid}) submitted new documents after being declined`,
+        recipientRole: 'ops_manager',
+        applicationDate: applicationDate,
+        isReapplication: true
+      };
+
+      const notification = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        read: false,
+        ...notificationData
+      };
+      
+      notifications.unshift(notification);
+      
+      // Save updated notifications
+      await notificationFile.save(JSON.stringify(notifications, null, 2), {
+        contentType: 'application/json',
+      });
+      
+      console.log(`📢 Created reapplication notification for ${client.name} on ${applicationDate}`);
+    }
+  } catch (notifError) {
+    console.error(`Error creating reapplication notification for client ${client.cid}:`, notifError);
+    // Don't fail the whole process if notification creation fails
+  }
+}
+
+// Helper function to ensure notification exists for pending applications
+async function ensureNotificationExists(client, applicationDate) {
+  try {
+    const notificationFile = bucket.file('notifications/notifications-OM.json');
+    
+    const [notifExists] = await notificationFile.exists();
+    if (!notifExists) {
+      // No notification file exists, create notification
+      await createOpsManagerNotification(client, applicationDate);
+      return;
+    }
+
+    const [notifContents] = await notificationFile.download();
+    const notifications = JSON.parse(notifContents.toString());
+    
+    // PERFECT: Check if notification exists for this specific application
+    const existingNotification = notifications.find(n =>
+      n.cid === client.cid &&
+      n.type === 'new_application' &&
+      n.applicationDate === applicationDate // Check for specific application date
+    );
+    
+    if (!existingNotification) {
+      console.log(`⚠️ Missing notification for application ${client.cid} on ${applicationDate}, creating now...`);
+      await createOpsManagerNotification(client, applicationDate);
+    } else {
+      console.log(`✅ Notification exists for application ${client.cid} on ${applicationDate}`);
+    }
+  } catch (error) {
+    console.error(`Error checking notification for client ${client.cid}:`, error);
+  }
+}
+
+// Helper function to create loan officer decision notification
+async function createLoanOfficerDecisionNotification(cid, decision, approvedAmount, clientName, opsManagerUsername = 'Operations Manager') {
+  try {
+    const notificationFile = bucket.file('notifications/notifications-LO.json');
+    
+    // Create file if it doesn't exist
+    const [notifExists] = await notificationFile.exists();
+    if (!notifExists) {
+      await notificationFile.save(JSON.stringify([]), {
+        contentType: 'application/json',
+      });
+    }
+
+    // Get existing notifications
+    const [notifContents] = await notificationFile.download();
+    const notifications = JSON.parse(notifContents.toString());
+    
+    // Create notification based on decision type
+    let notificationData;
+    
+    if (decision === 'approved') {
+      notificationData = {
+        cid: cid,
+        clientName: clientName,
+        type: 'status_change',
+        status: 'Approved',
+        amount: parseInt(approvedAmount),
+        message: `Loan request for client ${clientName} has been approved by ${opsManagerUsername}`,
+        recipientRole: 'loan_officer'
+      };
+    } else {
+      notificationData = {
+        cid: cid,
+        clientName: clientName,
+        type: 'status_change',
+        status: 'Declined',
+        message: `Loan request for client ${clientName} has been declined by ${opsManagerUsername}`,
+        recipientRole: 'loan_officer'
+      };
+    }
+
+    // Add new notification
+    const notification = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notificationData
+    };
+    
+    notifications.unshift(notification);
+    
+    // Save updated notifications
+    await notificationFile.save(JSON.stringify(notifications, null, 2), {
+      contentType: 'application/json',
+    });
+    
+    console.log(`📢 Created loan officer notification for ${decision} decision on ${clientName} (${cid})`);
+  } catch (notifError) {
+    console.error(`Error creating loan officer notification for client ${cid}:`, notifError);
+    // Don't fail the whole process if notification creation fails
+  }
+}
+
+// Helper function to create loan officer amount change notification
+async function createLoanOfficerAmountNotification(cid, newAmount, clientName, opsManagerUsername = 'Operations Manager') {
+  try {
+    const notificationFile = bucket.file('notifications/notifications-LO.json');
+    
+    // Create file if it doesn't exist
+    const [notifExists] = await notificationFile.exists();
+    if (!notifExists) {
+      await notificationFile.save(JSON.stringify([]), {
+        contentType: 'application/json',
+      });
+    }
+
+    // Get existing notifications
+    const [notifContents] = await notificationFile.download();
+    const notifications = JSON.parse(notifContents.toString());
+    
+    // Create amount change notification
+    const notificationData = {
+      cid: cid,
+      clientName: clientName,
+      type: 'amount_change',
+      amount: parseInt(newAmount),
+      message: `Loan amount for client ${clientName} has been updated to ₱${parseInt(newAmount).toLocaleString()} by ${opsManagerUsername}`,
+      recipientRole: 'loan_officer'
+    };
+
+    // Add new notification
+    const notification = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notificationData
+    };
+    
+    notifications.unshift(notification);
+    
+    // Save updated notifications
+    await notificationFile.save(JSON.stringify(notifications, null, 2), {
+      contentType: 'application/json',
+    });
+    
+    console.log(`📢 Created loan officer amount change notification for ${clientName} (${cid}) - ₱${parseInt(newAmount).toLocaleString()}`);
+  } catch (notifError) {
+    console.error(`Error creating loan officer amount notification for client ${cid}:`, notifError);
+    // Don't fail the whole process if notification creation fails
+  }
+}
+
+// ========================
 // CLIENT DATA ROUTES
 // ========================
 
@@ -578,26 +887,249 @@ app.get('/clients', async (req, res) => {
                   
                   metricsData.loanHistory.push(newHistoryEntry);
                   
-                  // Save updated metrics back to GCS
-                  await metricsFile.save(JSON.stringify(metricsData, null, 2), {
-                    contentType: 'application/json'
-                  });
+                  // Save updated metrics back to GCS with file locking
+                  const metricsFilePath = `client-metrics/${client.cid}-raw.json`;
+                  try {
+                    await acquireFileLock(metricsFilePath);
+                    await metricsFile.save(JSON.stringify(metricsData, null, 2), {
+                      contentType: 'application/json'
+                    });
+                  } finally {
+                    releaseFileLock(metricsFilePath);
+                  }
+                  
+                  // IMPORTANT: Reset client status to pending when new application is submitted
+                  // This ensures client shows as "pending" instead of staying "declined"
+                  try {
+                    const clientsFile = bucket.file('clients/clients.json');
+                    const [clientsContent] = await clientsFile.download();
+                    const clients = JSON.parse(clientsContent.toString());
+                    
+                    const updatedClients = clients.map(c => {
+                      if (c.cid === client.cid) {
+                        console.log(`🔄 Resetting client ${client.cid} status from "${c.status}" to "pending"`);
+                        // Remove the old status and decidedAt when new application is submitted
+                        const { status, decidedAt, ...clientWithoutStatus } = c;
+                        return clientWithoutStatus; // This makes the client show as "pending"
+                      }
+                      return c;
+                    });
+                    
+                    await clientsFile.save(JSON.stringify(updatedClients, null, 2), {
+                      contentType: 'application/json',
+                    });
+                    
+                    console.log(`✅ Client ${client.cid} status reset to pending`);
+                  } catch (statusError) {
+                    console.error(`Error resetting client ${client.cid} status:`, statusError);
+                    // Don't fail the whole process if status reset fails
+                  }
                   
                   hasPendingApplication = true;
                   latestApplicationDate = latestDate;
-                } else {
-                  // Application date already exists - check if any are still pending
-                  const pendingApplication = existingApplications.find(app => app.status === "pending");
                   
-                  if (pendingApplication) {
-                    console.log(`📋 Client ${client.cid} has existing pending application on ${latestDate}`);
+                  // 🔧 ENHANCED: Check if this should be a reapplication notification
+                  // This happens when client was declined recently and submits to a NEW date folder
+                  let isReapplicationInNewFolder = false;
+                  
+                  try {
+                    // Check if client has any recent declines (within last 7 days)
+                    const recentDeclines = metricsData.loanHistory.filter(loan =>
+                      loan.status === "Declined" &&
+                      loan.declinedAt &&
+                      (Date.now() - new Date(loan.declinedAt).getTime()) < (7 * 24 * 60 * 60 * 1000)
+                    );
+                    
+                    // If client was recently declined, this is a reapplication in new folder
+                    if (recentDeclines.length > 0) {
+                      console.log(`🔄 NEW FOLDER REAPPLICATION: Client ${client.cid} was recently declined and submitted to new folder ${latestDate}`);
+                      isReapplicationInNewFolder = true;
+                    }
+                  } catch (reapplicationCheckError) {
+                    console.error(`Error checking for new folder reapplication:`, reapplicationCheckError);
+                  }
+                  
+                  // Create appropriate notification
+                  if (isReapplicationInNewFolder) {
+                    await createReapplicationNotification(client, latestDate);
+                  } else {
+                    await createOpsManagerNotification(client, latestDate);
+                  }
+                  
+                } else {
+                  // 🔧 COMPREHENSIVE FIX: Only check the latest date for pending applications
+                  // Ignore old pending entries from previous dates
+                  const currentDatePendingApps = existingApplications.filter(app =>
+                    app.status === "pending" && app.dateApplied === latestDate
+                  );
+                  
+                  // Also check for any other pending apps from this specific date in the full history
+                  const allPendingForThisDate = metricsData.loanHistory.filter(loan =>
+                    loan.dateApplied === latestDate && loan.status === "pending"
+                  );
+                  
+                  if (currentDatePendingApps.length > 0 || allPendingForThisDate.length > 0) {
+                    console.log(`📋 Client ${client.cid} has pending application(s) for ${latestDate}`);
+                    console.log(`   - Current date pending: ${currentDatePendingApps.length}`);
+                    console.log(`   - All pending for this date: ${allPendingForThisDate.length}`);
                     hasPendingApplication = true;
                     latestApplicationDate = latestDate;
+                    
+                    // IMPORTANT: Check if notification exists for this pending application
+                    // This fixes the issue where metrics exist but notification is missing
+                    await ensureNotificationExists(client, latestDate);
+                    
                   } else {
-                    // All applications for this date have been processed
-                    const latestStatus = existingApplications[existingApplications.length - 1].status;
-                    console.log(`✅ Client ${client.cid} application on ${latestDate} already processed: ${latestStatus}`);
-                    hasPendingApplication = false;
+                    // No pending applications found - check if this is a reapplication scenario
+                    const declinedApplications = existingApplications.filter(app => app.status === "Declined");
+                    const approvedApplications = existingApplications.filter(app => app.status === "Approved");
+                    
+                    // 🛑 CRITICAL FIX: Check for recent declines to prevent race condition
+                    const recentDeclines = metricsData.loanHistory.filter(loan =>
+                      loan.dateApplied === latestDate &&
+                      loan.status === "Declined" &&
+                      loan.declinedAt &&
+                      (Date.now() - new Date(loan.declinedAt).getTime()) < 30000 // Within last 30 seconds
+                    );
+                    
+                    // 🛑 REFINED FIX: Check if there's already a PENDING reapplication (not processed ones)
+                    const pendingReapplicationExists = existingApplications.some(app =>
+                      app.isReapplication === true && app.status === "pending"
+                    );
+                    
+                    // 🔄 REAPPLICATION LOGIC: Only allow reapplication if:
+                    // 1. Client is declined
+                    // 2. There are declined applications for this date
+                    // 3. No pending reapplication already exists (prevents infinite loop)
+                    // 4. No recent declines (prevents race condition with decline process)
+                    // 🔄 REAPPLICATION LOGIC: Only allow reapplication if:
+                    // 1. Client is declined
+                    // 2. There are declined applications for this date
+                    // 3. No pending reapplication already exists (prevents infinite loop)
+                    // 4. No recent declines (prevents race condition with decline process)
+                    // 5. NEW: Documents were uploaded AFTER the most recent decline (genuine reapplication)
+                    if (declinedApplications.length > 0 && client.status === 'declined' && !pendingReapplicationExists && recentDeclines.length === 0) {
+                      
+                      // 🆕 ENHANCED OPTION 2 FIX: Check if ANY files were uploaded after the most recent decline
+                      // This works regardless of mobile app folder behavior
+                      let hasNewDocumentsAfterDecline = false;
+                      
+                      try {
+                        // Get the most recent decline timestamp for this date
+                        const mostRecentDecline = metricsData.loanHistory
+                          .filter(loan => loan.dateApplied === latestDate && loan.status === "Declined" && loan.declinedAt)
+                          .sort((a, b) => new Date(b.declinedAt) - new Date(a.declinedAt))[0];
+                        
+                        if (mostRecentDecline) {
+                          const declineTime = new Date(mostRecentDecline.declinedAt);
+                          console.log(`🕐 ENHANCED: Checking for ANY files uploaded after decline at: ${declineTime.toISOString()}`);
+                          
+                          // 🔧 ENHANCED: Check ALL files in the latest date folder (including JSON files)
+                          // This catches reapplications even when mobile app reuses same date folder
+                          const allFilesInFolder = files.filter(file => {
+                            const parts = file.name.split('/');
+                            return parts.length >= 4 && parts[2] === latestDate;
+                          });
+                          
+                          console.log(`📂 Checking ${allFilesInFolder.length} files in folder ${latestDate} for timestamps after ${declineTime.toISOString()}`);
+                          
+                          for (const file of allFilesInFolder) {
+                            const uploadTime = new Date(file.metadata.timeCreated);
+                            console.log(`   📄 File: ${file.name.split('/').pop()} - Upload: ${uploadTime.toISOString()} vs Decline: ${declineTime.toISOString()}`);
+                            
+                            if (uploadTime > declineTime) {
+                              console.log(`✅ ENHANCED: Found file uploaded after decline: ${file.name} at ${uploadTime.toISOString()}`);
+                              hasNewDocumentsAfterDecline = true;
+                              break;
+                            }
+                          }
+                          
+                          if (!hasNewDocumentsAfterDecline) {
+                            console.log(`❌ ENHANCED: All ${allFilesInFolder.length} files for ${latestDate} were uploaded before decline - not a legitimate reapplication`);
+                          } else {
+                            console.log(`🎯 ENHANCED: Legitimate reapplication detected - files uploaded after decline!`);
+                          }
+                        } else {
+                          console.log(`⚠️ No decline timestamp found for ${latestDate} - allowing reapplication`);
+                          hasNewDocumentsAfterDecline = true; // Default to allow if no decline timestamp
+                        }
+                      } catch (timestampError) {
+                        console.error(`Error checking document timestamps for client ${client.cid}:`, timestampError);
+                        hasNewDocumentsAfterDecline = true; // Default to allow on error
+                      }
+                      
+                      // Only create reapplication if there are genuinely new documents
+                      if (hasNewDocumentsAfterDecline) {
+                        console.log(`🔄 LEGITIMATE REAPPLICATION: Client ${client.cid} submitted NEW documents after decline on ${latestDate}`);
+                        
+                        // Add new pending entry for reapplication
+                        const reapplicationEntry = {
+                          dateApplied: latestDate,
+                          status: "pending",
+                          isReapplication: true
+                        };
+                        
+                        metricsData.loanHistory.push(reapplicationEntry);
+                        
+                        // Save updated metrics back to GCS with file locking
+                        const metricsFilePath = `client-metrics/${client.cid}-raw.json`;
+                        try {
+                          await acquireFileLock(metricsFilePath);
+                          await metricsFile.save(JSON.stringify(metricsData, null, 2), {
+                            contentType: 'application/json'
+                          });
+                        } finally {
+                          releaseFileLock(metricsFilePath);
+                        }
+                        
+                        // Reset client status to pending for reapplication
+                        try {
+                          const clientsFile = bucket.file('clients/clients.json');
+                          const [clientsContent] = await clientsFile.download();
+                          const clients = JSON.parse(clientsContent.toString());
+                          
+                          const updatedClients = clients.map(c => {
+                            if (c.cid === client.cid) {
+                              console.log(`🔄 Resetting declined client ${client.cid} to "pending" for legitimate reapplication`);
+                              // Remove the old status and decidedAt for reapplication
+                              const { status, decidedAt, ...clientWithoutStatus } = c;
+                              return clientWithoutStatus; // This makes the client show as "pending"
+                            }
+                            return c;
+                          });
+                          
+                          await clientsFile.save(JSON.stringify(updatedClients, null, 2), {
+                            contentType: 'application/json',
+                          });
+                          
+                          console.log(`✅ Client ${client.cid} legitimate reapplication status reset to pending`);
+                        } catch (statusError) {
+                          console.error(`Error resetting reapplication status for client ${client.cid}:`, statusError);
+                        }
+                        
+                        hasPendingApplication = true;
+                        latestApplicationDate = latestDate;
+                        
+                        // Create reapplication notification (with special handling to prevent duplicates)
+                        await createReapplicationNotification(client, latestDate);
+                        
+                      } else {
+                        console.log(`🚫 FALSE REAPPLICATION PREVENTED: Client ${client.cid} - no new documents after decline`);
+                        hasPendingApplication = false;
+                      }
+                      
+                    } else {
+                      // All applications for this date have been fully processed
+                      if (pendingReapplicationExists) {
+                        console.log(`⏸️ Client ${client.cid} already has pending reapplication on ${latestDate} - will not create duplicate`);
+                      } else if (recentDeclines.length > 0) {
+                        console.log(`🚨 RACE CONDITION PREVENTED: Client ${client.cid} has recent declines on ${latestDate} - will not create new pending entry`);
+                      } else {
+                        console.log(`✅ Client ${client.cid} application on ${latestDate} already processed - no pending entries`);
+                      }
+                      console.log(`   - Declined: ${declinedApplications.length}, Approved: ${approvedApplications.length}, Pending reapplication exists: ${pendingReapplicationExists}, Recent declines: ${recentDeclines.length}`);
+                      hasPendingApplication = false;
+                    }
                   }
                 }
                 
@@ -1011,7 +1543,7 @@ app.post('/loan/:cid/decision', async (req, res) => {
         
         // Create new loan history entry - WITH calculated dueDate based on actual loan terms
         const newLoanHistory = {
-          amount: approvedAmountNum,  // Ensure it's a number
+          amount: approvedAmountNum,  // ✅ FIXED: Always use the amount entered by ops manager, regardless of approve/decline
           dateApplied: formattedDate,
           status: decision === 'approved' ? 'Approved' : 'Declined',
           purpose: loanData.purpose,
@@ -1058,29 +1590,64 @@ app.post('/loan/:cid/decision', async (req, res) => {
     // Update existing pending entry in metrics instead of adding new one
     const applicationDateStr = latestDate; // Use the actual application date, not today's date
     
-    // Find and update the pending entry for this specific application date
-    const pendingEntryIndex = metricsData.loanHistory.findIndex(loan =>
-      loan.dateApplied === applicationDateStr && loan.status === "pending"
-    );
+    // 🔧 ULTRA-COMPREHENSIVE FIX: Handle all pending entries with detailed logging
+    console.log(`🔍 Searching for pending entries with date: "${applicationDateStr}"`);
+    console.log(`📊 Current loan history (${metricsData.loanHistory.length} entries):`);
+    metricsData.loanHistory.forEach((loan, index) => {
+      console.log(`   [${index}] Date: "${loan.dateApplied}", Status: "${loan.status}", Reapp: ${loan.isReapplication || false}`);
+    });
     
-    if (pendingEntryIndex !== -1) {
-      // Update the existing pending entry
-      metricsData.loanHistory[pendingEntryIndex].status = decision === 'approved' ? 'Approved' : 'Declined';
-      console.log(`✅ Updated existing pending entry for ${applicationDateStr} to ${decision}`);
+    // Find ALL pending entries for this application date
+    const allPendingIndices = [];
+    metricsData.loanHistory.forEach((loan, index) => {
+      if (loan.dateApplied === applicationDateStr && loan.status === "pending") {
+        allPendingIndices.push({index, entry: loan});
+      }
+    });
+    
+    console.log(`🔄 Found ${allPendingIndices.length} pending entries for date "${applicationDateStr}"`);
+    allPendingIndices.forEach((item, i) => {
+      console.log(`   Pending [${i}]: Index ${item.index}, Reapp: ${item.entry.isReapplication || false}`);
+    });
+    
+    if (allPendingIndices.length > 0) {
+      // Update ALL pending entries to the decision status and preserve the most recent one
+      for (let i = 0; i < allPendingIndices.length; i++) {
+        const {index, entry} = allPendingIndices[i];
+        metricsData.loanHistory[index].status = decision === 'approved' ? 'Approved' : 'Declined';
+        // Add timestamp for declined entries to prevent race conditions
+        if (decision === 'declined') {
+          metricsData.loanHistory[index].declinedAt = now.toISOString();
+        }
+        console.log(`✅ Updated pending entry at index ${index} to "${decision === 'approved' ? 'Approved' : 'Declined'}"`);
+      }
+      
+      console.log(`🎯 Successfully updated ${allPendingIndices.length} pending entries to ${decision}`);
     } else {
-      // Fallback: If no pending entry found, add new entry (shouldn't normally happen)
+      // Fallback: If no pending entry found, add new entry
       const newMetricsHistory = {
         dateApplied: applicationDateStr,
         status: decision === 'approved' ? 'Approved' : 'Declined'
       };
+      // Add timestamp for declined entries to prevent race conditions
+      if (decision === 'declined') {
+        newMetricsHistory.declinedAt = now.toISOString();
+      }
       metricsData.loanHistory.push(newMetricsHistory);
-      console.log(`⚠️  No pending entry found, added new entry for ${applicationDateStr}`);
+      console.log(`⚠️  No pending entry found for "${applicationDateStr}", added new entry`);
     }
 
-    await metricsFile.save(JSON.stringify(metricsData, null, 2), {
-      contentType: 'application/json'
-    });
-    console.log('Updated metrics raw file with decision status');
+    // Save updated metrics with file locking to prevent race conditions
+    const metricsFilePath = `client-metrics/${cid}-raw.json`;
+    try {
+      await acquireFileLock(metricsFilePath);
+      await metricsFile.save(JSON.stringify(metricsData, null, 2), {
+        contentType: 'application/json'
+      });
+      console.log('Updated metrics raw file with decision status');
+    } finally {
+      releaseFileLock(metricsFilePath);
+    }
 
     // Create the decision object with current timestamp and approved amount
     const decisionData = {
@@ -1153,6 +1720,21 @@ app.post('/loan/:cid/decision', async (req, res) => {
       }
     }
 
+    // Create loan officer notification for the decision
+    try {
+      const clientData = updatedClients.find(c => c.cid === cid);
+      await createLoanOfficerDecisionNotification(
+        cid,
+        decision,
+        decision === 'approved' ? approvedAmount : null,
+        clientData?.name || 'Unknown Client',
+        'Operations Manager'
+      );
+    } catch (notifError) {
+      console.error(`Error creating loan officer notification:`, notifError);
+      // Don't fail the whole process if notification creation fails
+    }
+
     res.json({
       message: `Loan ${decision} successfully`,
       status: decision
@@ -1223,6 +1805,25 @@ app.post('/loan/:cid/amount', async (req, res) => {
     await agreementFile.save(JSON.stringify(agreement, null, 2), {
       contentType: 'application/json',
     });
+
+    // Create loan officer notification for amount change
+    try {
+      // Get client name for the notification
+      const clientsFile = bucket.file('clients/clients.json');
+      const [clientsContent] = await clientsFile.download();
+      const clients = JSON.parse(clientsContent.toString());
+      const clientData = clients.find(c => c.cid === cid);
+      
+      await createLoanOfficerAmountNotification(
+        cid,
+        amount,
+        clientData?.name || 'Unknown Client',
+        'Operations Manager'
+      );
+    } catch (notifError) {
+      console.error(`Error creating loan officer amount notification:`, notifError);
+      // Don't fail the whole process if notification creation fails
+    }
 
     res.json({
       message: 'Loan amount updated successfully',

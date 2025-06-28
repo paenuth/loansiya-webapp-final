@@ -13,7 +13,16 @@ const bucket = storage.bucket(process.env.GCS_BUCKET);
 router.get('/notifications', async (req, res) => {
   try {
     const recipientRole = req.query.role || 'loan_officer'; // Default to loan_officer
-    const file = bucket.file('notifications/notifications.json');
+    
+    // Determine which file to use based on role
+    let notificationFile;
+    if (recipientRole === 'ops_manager') {
+      notificationFile = 'notifications/notifications-OM.json';
+    } else {
+      notificationFile = 'notifications/notifications-LO.json';
+    }
+    
+    const file = bucket.file(notificationFile);
     
     // Create file if it doesn't exist
     const [exists] = await file.exists();
@@ -24,14 +33,12 @@ router.get('/notifications', async (req, res) => {
     }
 
     const [contents] = await file.download();
-    const allNotifications = JSON.parse(contents.toString());
+    const notifications = JSON.parse(contents.toString());
 
-    // Filter notifications by role and sort by timestamp
-    const notifications = allNotifications
-      .filter(n => n.recipientRole === recipientRole)
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Sort by timestamp (newest first)
+    const sortedNotifications = notifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-    res.json(notifications);
+    res.json(sortedNotifications);
   } catch (err) {
     console.error('❌ Error fetching notifications:', err);
     res.status(500).json({ error: 'Failed to fetch notifications', details: err.message });
@@ -48,7 +55,15 @@ router.post('/notifications', async (req, res) => {
       ...req.body
     };
 
-    const file = bucket.file('notifications/notifications.json');
+    // Determine which file to use based on recipient role
+    let notificationFile;
+    if (notification.recipientRole === 'ops_manager') {
+      notificationFile = 'notifications/notifications-OM.json';
+    } else {
+      notificationFile = 'notifications/notifications-LO.json';
+    }
+
+    const file = bucket.file(notificationFile);
     
     // Create file if it doesn't exist
     const [exists] = await file.exists();
@@ -62,6 +77,22 @@ router.post('/notifications', async (req, res) => {
     const [contents] = await file.download();
     const notifications = JSON.parse(contents.toString());
 
+    // 🚫 DEDUPLICATION LOGIC: Prevent duplicate notifications
+    const isDuplicate = notifications.some(existing => {
+      return existing.cid === notification.cid &&
+             existing.type === notification.type &&
+             existing.recipientRole === notification.recipientRole &&
+             !existing.read; // Only check unread notifications
+    });
+
+    if (isDuplicate) {
+      console.log(`⚠️ Duplicate notification prevented for CID: ${notification.cid}, Type: ${notification.type}`);
+      return res.status(409).json({
+        error: 'Duplicate notification',
+        message: `A similar unread notification already exists for CID ${notification.cid}`
+      });
+    }
+
     // Add new notification
     notifications.unshift(notification);
 
@@ -70,6 +101,7 @@ router.post('/notifications', async (req, res) => {
       contentType: 'application/json',
     });
 
+    console.log(`✅ Created notification for CID: ${notification.cid}, Type: ${notification.type}`);
     res.json(notification);
   } catch (err) {
     console.error('❌ Error creating notification:', err);
@@ -80,8 +112,17 @@ router.post('/notifications', async (req, res) => {
 // Mark notifications as read
 router.post('/notifications/mark-read', async (req, res) => {
   try {
-    const { notificationIds } = req.body;
-    const file = bucket.file('notifications/notifications.json');
+    const { notificationIds, role } = req.body;
+    
+    // Determine which file to use based on role
+    let notificationFile;
+    if (role === 'ops_manager') {
+      notificationFile = 'notifications/notifications-OM.json';
+    } else {
+      notificationFile = 'notifications/notifications-LO.json';
+    }
+    
+    const file = bucket.file(notificationFile);
     
     const [contents] = await file.download();
     const notifications = JSON.parse(contents.toString());

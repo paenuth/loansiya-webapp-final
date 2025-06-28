@@ -46,15 +46,21 @@ export default function TotalLoanListScreen({ navigation, route }) {
   };
 
   const getLatestLoanRequest = (item) => {
-    // Check current status first
+    // PRIORITY 1: If client has a pending application, show new application message
+    if (item.hasPendingApplication && item.latestApplicationDate) {
+      const formattedDate = formatDate(item.latestApplicationDate);
+      return `Application submitted (${formattedDate})`;
+    }
+    
+    // PRIORITY 2: Check current status for non-pending items
     const currentStatus = item.status ? item.status.toLowerCase() : 'pending';
     
-    // For pending applications, return blank
+    // For pending status without pending application, return blank
     if (currentStatus === 'pending' || !item.status) {
       return '';
     }
     
-    // Find most recent notification for this client's loan from ops manager
+    // PRIORITY 3: Find most recent notification for this client's loan from ops manager
     const clientNotifications = notifications
       .filter(n => n.cid === item.cid &&
                   (n.type === 'status_change' || n.type === 'amount_change'))
@@ -93,7 +99,7 @@ export default function TotalLoanListScreen({ navigation, route }) {
       }
     }
     
-    // Fall back to loan history if no ops manager notifications
+    // PRIORITY 4: Fall back to loan history if no ops manager notifications
     if (item.loans?.loanHistory && item.loans.loanHistory.length > 0) {
       const sortedHistory = [...item.loans.loanHistory].sort((a, b) =>
         new Date(b.dateUpdated || b.dateApplied) - new Date(a.dateUpdated || a.dateApplied)
@@ -121,9 +127,28 @@ export default function TotalLoanListScreen({ navigation, route }) {
     const currentStatus = loan.status ? loan.status.toLowerCase() : 'pending';
     const currentFilter = filter.toLowerCase();
 
-    const matchesFilter = currentFilter === 'pending'
-      ? loan.hasPendingApplication === true  // Use same logic as OpsPendingList
-      : (currentStatus === currentFilter);   // Keep existing logic for approved/declined
+    let matchesFilter;
+    
+    if (currentFilter === 'pending') {
+      // For pending filter: show clients with pending applications OR no status (which means pending)
+      // EXCLUDE clients with outstanding balances from pending (they can't apply for new loans)
+      const hasOutstandingBalance = loan.loanBalance && loan.loanBalance.amount > 0;
+      if (hasOutstandingBalance) {
+        return false; // Don't show clients with outstanding balances in pending filter
+      }
+      matchesFilter = loan.hasPendingApplication === true || (!loan.status);
+    } else if (currentFilter === 'approved') {
+      // For approved filter: show only clients with status "approved" AND no pending application
+      // INCLUDE approved clients even if they have outstanding balances
+      matchesFilter = currentStatus === 'approved' && loan.hasPendingApplication !== true;
+    } else if (currentFilter === 'declined') {
+      // For declined filter: show only clients with status "declined" AND no pending application
+      // INCLUDE declined clients even if they have outstanding balances
+      matchesFilter = currentStatus === 'declined' && loan.hasPendingApplication !== true;
+    } else {
+      // Fallback for other filters
+      matchesFilter = currentStatus === currentFilter;
+    }
 
     return matchesSearch && matchesFilter;
   });
@@ -152,11 +177,11 @@ export default function TotalLoanListScreen({ navigation, route }) {
           <View style={styles.mobileStatusRow}>
             <Text style={[
               styles.mobileStatus,
-              (item.status && item.status.toLowerCase() === 'approved') && styles.approvedStatus,
-              (item.status && item.status.toLowerCase() === 'declined') && styles.declinedStatus,
-              (!item.status || item.status.toLowerCase() === 'pending') && styles.pendingStatus
+              (item.status && item.status.toLowerCase() === 'approved' && !item.hasPendingApplication) && styles.approvedStatus,
+              (item.status && item.status.toLowerCase() === 'declined' && !item.hasPendingApplication) && styles.declinedStatus,
+              (!item.status || item.status.toLowerCase() === 'pending' || item.hasPendingApplication) && styles.pendingStatus
             ]}>
-              Status: {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() : 'Pending'}
+              Status: {item.hasPendingApplication ? 'Pending' : (item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() : 'Pending')}
             </Text>
             <Text style={styles.mobileDate}>Loan Update: {getLatestLoanRequest(item)}</Text>
           </View>
@@ -174,13 +199,13 @@ export default function TotalLoanListScreen({ navigation, route }) {
             <Text style={[
               styles.cell,
               styles.centerText,
-              (item.status && item.status.toLowerCase() === 'approved') && styles.approvedStatus,
-              (item.status && item.status.toLowerCase() === 'declined') && styles.declinedStatus,
-              (!item.status || item.status.toLowerCase() === 'pending') && styles.pendingStatus
+              (item.status && item.status.toLowerCase() === 'approved' && !item.hasPendingApplication) && styles.approvedStatus,
+              (item.status && item.status.toLowerCase() === 'declined' && !item.hasPendingApplication) && styles.declinedStatus,
+              (!item.status || item.status.toLowerCase() === 'pending' || item.hasPendingApplication) && styles.pendingStatus
             ]} numberOfLines={1}>
-              {item.status ?
+              {item.hasPendingApplication ? 'Pending' : (item.status ?
                 item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase()
-                : 'Pending'}
+                : 'Pending')}
             </Text>
           </View>
           <View style={[styles.cellContainer, isTablet ? styles.tabletCell : { flex: 2 }, styles.updateCell]}>

@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, StyleSheet, useWindowDimensions, Platform } from 'react-native';
 import { useLoan } from '../../contexts/LoanContext';
+import { useOps } from '../../contexts/OpsContext';
 import TopBar from '../../components/common/TopBar';
 import DashboardCard from '../../components/common/DashboardCard';
 
 export default function OpsDashboardScreen({ navigation }) {
   const { loans } = useLoan();
+  const { unreadCount, fetchUnreadCount } = useOps();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   
@@ -16,12 +18,20 @@ export default function OpsDashboardScreen({ navigation }) {
     loan.hasPendingApplication === true
   ).length;
 
+  const handleNotificationRead = () => {
+    // Refresh unread count when notifications are marked as read
+    fetchUnreadCount();
+  };
+
   return (
     <View style={styles.container}>
       <TopBar
         navigation={navigation}
         role="Operations Manager"
-        showNotifications={false}
+        showNotifications={true}
+        unreadCount={unreadCount}
+        notificationScreen="OpsNotifications"
+        onNotificationRead={handleNotificationRead}
       />
 
       <View style={[styles.content, isMobile && styles.contentMobile]}>

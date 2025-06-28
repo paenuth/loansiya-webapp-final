@@ -5,15 +5,36 @@ import TopBar from '../../components/common/TopBar';
 import DashboardCard from '../../components/common/DashboardCard';
 
 export default function LoanOfficerDashboard({ navigation }) {
-  const { loans, unreadCount } = useLoan();
+  const { loans, unreadCount, fetchUnreadCount } = useLoan();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   
+  // Total clients (all clients)
   const totalLoanClients = loans.length;
-  const totalLoanPending = loans.filter(loan =>
-    loan.status === 'Pending' ||
-    !loan.status
-  ).length;
+  
+  // Total Loan List should count all clients that appear in any filter
+  // Approved and declined clients always show, pending clients show only if no outstanding balance
+  const totalLoanList = loans.filter(loan => {
+    const currentStatus = loan.status ? loan.status.toLowerCase() : 'pending';
+    const hasOutstandingBalance = loan.loanBalance && loan.loanBalance.amount > 0;
+    
+    // Include approved and declined clients regardless of balance
+    if (currentStatus === 'approved' || currentStatus === 'declined') {
+      return true;
+    }
+    
+    // For pending clients, exclude those with outstanding balances
+    if (loan.hasPendingApplication === true || (!loan.status)) {
+      return !hasOutstandingBalance;
+    }
+    
+    return false;
+  }).length;
+
+  const handleNotificationRead = () => {
+    // Refresh unread count when notifications are marked as read
+    fetchUnreadCount();
+  };
 
   return (
     <View style={styles.container}>
@@ -22,6 +43,7 @@ export default function LoanOfficerDashboard({ navigation }) {
         role="Loan Officer"
         showNotifications={true}
         unreadCount={unreadCount}
+        onNotificationRead={handleNotificationRead}
       />
 
       <View style={[styles.content, isMobile && styles.contentMobile]}>
@@ -33,7 +55,7 @@ export default function LoanOfficerDashboard({ navigation }) {
           />
         <DashboardCard
           label="Total Loan List"
-          value={totalLoanClients}
+          value={totalLoanList}
           onPress={() => navigation.navigate('TotalLoanList')}
           />
         </View>

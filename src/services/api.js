@@ -286,9 +286,9 @@ export const clientAPI = {
   // Notification endpoints
   notifications: {
     // Get notifications for the current user
-    getNotifications: async () => {
+    getNotifications: async (role = 'loan_officer') => {
       try {
-        const response = await fetch(`${API_BASE_URL}/notifications`);
+        const response = await fetch(`${API_BASE_URL}/notifications?role=${encodeURIComponent(role)}`);
         if (!response.ok) {
           throw new Error('Failed to fetch notifications');
         }
@@ -320,14 +320,14 @@ export const clientAPI = {
     },
 
     // Mark notifications as read
-    markAsRead: async (notificationIds) => {
+    markAsRead: async (notificationIds, role = 'loan_officer') => {
       try {
         const response = await fetch(`${API_BASE_URL}/notifications/mark-read`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ notificationIds })
+          body: JSON.stringify({ notificationIds, role })
         });
         if (!response.ok) {
           throw new Error('Failed to mark notifications as read');
