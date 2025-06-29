@@ -24,7 +24,8 @@ export default function LoanOfficerDashboard({ navigation }) {
     }
     
     // For pending clients, exclude those with outstanding balances
-    if (loan.hasPendingApplication === true || (!loan.status)) {
+    if (loan.hasPendingApplication === true) {
+
       return !hasOutstandingBalance;
     }
     

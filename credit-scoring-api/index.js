@@ -608,55 +608,49 @@ async function createReapplicationNotification(client, applicationDate) {
     const [notifContents] = await notificationFile.download();
     const notifications = JSON.parse(notifContents.toString());
     
-    // Check if reapplication notification already exists for this specific date
-    // Look for either regular application or reapplication notification for this date
-    const existingNotification = notifications.find(n =>
+    // 🔧 FIXED: Always create NEW reapplication notifications instead of updating existing ones
+    // This ensures ops managers see each reapplication attempt as a separate notification
+    
+    // Check if this is a truly duplicate notification (within last 5 minutes to prevent spam)
+    const recentDuplicates = notifications.filter(n =>
       n.cid === client.cid &&
       n.type === 'new_application' &&
-      n.applicationDate === applicationDate
+      n.applicationDate === applicationDate &&
+      n.isReapplication === true &&
+      (Date.now() - new Date(n.timestamp).getTime()) < (5 * 60 * 1000) // Within last 5 minutes
     );
     
-    if (existingNotification) {
-      // Update existing notification to mark it as a reapplication
-      existingNotification.message = `Reapplication: ${client.name} (CID: ${client.cid}) submitted new documents after being declined`;
-      existingNotification.isReapplication = true;
-      existingNotification.timestamp = new Date().toISOString(); // Update timestamp
-      existingNotification.read = false; // Mark as unread for ops manager attention
-      
-      // Save updated notifications
-      await notificationFile.save(JSON.stringify(notifications, null, 2), {
-        contentType: 'application/json',
-      });
-      
-      console.log(`📢 Updated existing notification for reapplication: client ${client.cid} on ${applicationDate}`);
-    } else {
-      // Create new reapplication notification
-      const notificationData = {
-        cid: client.cid,
-        clientName: client.name,
-        type: 'new_application',
-        message: `Reapplication: ${client.name} (CID: ${client.cid}) submitted new documents after being declined`,
-        recipientRole: 'ops_manager',
-        applicationDate: applicationDate,
-        isReapplication: true
-      };
-
-      const notification = {
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
-        read: false,
-        ...notificationData
-      };
-      
-      notifications.unshift(notification);
-      
-      // Save updated notifications
-      await notificationFile.save(JSON.stringify(notifications, null, 2), {
-        contentType: 'application/json',
-      });
-      
-      console.log(`📢 Created reapplication notification for ${client.name} on ${applicationDate}`);
+    if (recentDuplicates.length > 0) {
+      console.log(`🚫 Preventing duplicate reapplication notification for client ${client.cid} on ${applicationDate} (within 5 minutes)`);
+      return; // Don't create duplicate within 5 minutes
     }
+    
+    // Create new reapplication notification (always create new, don't update existing)
+    const notificationData = {
+      cid: client.cid,
+      clientName: client.name,
+      type: 'new_application',
+      message: `Reapplication: ${client.name} (CID: ${client.cid}) submitted new documents after being declined`,
+      recipientRole: 'ops_manager',
+      applicationDate: applicationDate,
+      isReapplication: true
+    };
+
+    const notification = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      ...notificationData
+    };
+    
+    notifications.unshift(notification);
+    
+    // Save updated notifications
+    await notificationFile.save(JSON.stringify(notifications, null, 2), {
+      contentType: 'application/json',
+    });
+    
+    console.log(`📢 Created NEW reapplication notification for ${client.name} on ${applicationDate} (ID: ${notification.id})`);
   } catch (notifError) {
     console.error(`Error creating reapplication notification for client ${client.cid}:`, notifError);
     // Don't fail the whole process if notification creation fails

@@ -136,7 +136,7 @@ export default function TotalLoanListScreen({ navigation, route }) {
       if (hasOutstandingBalance) {
         return false; // Don't show clients with outstanding balances in pending filter
       }
-      matchesFilter = loan.hasPendingApplication === true || (!loan.status);
+      matchesFilter = loan.hasPendingApplication === true;
     } else if (currentFilter === 'approved') {
       // For approved filter: show only clients with status "approved" AND no pending application
       // INCLUDE approved clients even if they have outstanding balances

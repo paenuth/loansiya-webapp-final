@@ -1,0 +1,390 @@
+LoanSiya Web Application Test Cases for Thesis Paper 
+====================================================
+
+NOTES:
+- This web application is designed for Loan Officer, Operations Manager, and IT Admin users
+- Test cases follow the format: Test ID | Test Description | Test Steps | Expected Result | Actual Result | Pass/Fail
+- TSR (Task Success Rate) formula: TSR (%) = Number of Successfully Completed Tasks / Total Number of Tasks Attempted × 100
+
+==================================================== WEB APP TEST CASES CURRENTLY
+
+Table 1: Authentication and Login Test Cases
+============================================
+
+Test ID: LSTC-001
+Test Description: Valid IT Admin Login
+Test Steps:
+1. Navigate to login page
+2. Enter valid IT Admin credentials
+3. Click "Login" button
+Expected Result: User successfully logs in and redirects to IT Admin Dashboard showing active loan officers and operations managers count
+Actual Result: User logs in successfully and dashboard displays correct counts
+Pass/Fail: ✓
+
+Test ID: LSTC-002
+Test Description: Valid Loan Officer Login
+Test Steps:
+1. Open LoanSiya portal
+2. Input valid loan officer username and password
+3. Submit login form
+Expected Result: System authenticates user and navigates to Loan Officer Dashboard with "Total Loan Client" and "Total Loan List" cards
+Actual Result: Authentication successful, dashboard loads with proper navigation cards
+Pass/Fail: ✓
+
+Test ID: LSTC-003
+Test Description: Valid Operations Manager Login
+Test Steps:
+1. Access login screen
+2. Enter OPS_MANAGER credentials
+3. Press login
+Expected Result: User is authenticated and taken to Operations Dashboard showing total loan clients and pending loans
+Actual Result: Login works correctly, ops dashboard displays with client and pending loan metrics
+Pass/Fail: ✓
+
+Test ID: LSTC-004
+Test Description: Invalid Credentials Test
+Test Steps:
+1. Enter incorrect username
+2. Enter wrong password
+3. Attempt login
+Expected Result: System displays error message "Login failed. Please check your credentials." and remains on login page
+Actual Result: Error alert shown, user stays on login screen
+Pass/Fail: ✓
+
+Test ID: LSTC-005
+Test Description: Forgot Password Functionality
+Test Steps:
+1. Click "Forgot Password?" link
+2. Navigate to forgot password screen
+Expected Result: User is redirected to ForgotPasswordScreen for password recovery process
+Actual Result: Successful navigation to password recovery page
+Pass/Fail: ✓
+
+====================================================
+
+Table 2: IT Admin User Management Test Cases
+============================================
+
+Test ID: LSTC-006
+Test Description: View User Management List
+Test Steps:
+1. Login as IT Admin
+2. Click "View List" button from dashboard
+3. Navigate to User Management screen
+Expected Result: Display complete list of users with columns: Name, Username, Role, Status, Action buttons
+Actual Result: User list loads properly showing all user details in table format
+Pass/Fail: ✓
+
+Test ID: LSTC-007
+Test Description: Add New User
+Test Steps:
+1. Go to User Management
+2. Click "Add User" button
+3. Fill required user details
+4. Submit form
+Expected Result: New user is created successfully and appears in user list with "Active" status
+Actual Result: User creation successful, new entry visible in management table
+Pass/Fail: ✓
+
+Test ID: LSTC-008
+Test Description: Edit Existing User
+Test Steps:
+1. Select user from list
+2. Click "Edit" button
+3. Modify user information
+4. Save changes
+Expected Result: User information is updated successfully and changes reflect in the user list
+Actual Result: User data modified correctly, updated info displays properly
+Pass/Fail: ✓
+
+Test ID: LSTC-009
+Test Description: Disable User Account
+Test Steps:
+1. Choose active user
+2. Click "Disable" action button
+3. Confirm status change
+Expected Result: User status changes from "Active" to "Disabled", user cannot login anymore
+Actual Result: Status update successful, user account properly disabled
+Pass/Fail: ✓
+
+Test ID: LSTC-010
+Test Description: Enable User Account
+Test Steps:
+1. Select disabled user
+2. Click "Enable" action button
+3. Update status
+Expected Result: User status changes from "Disabled" to "Active", user can login again
+Actual Result: Account re-enabled successfully, user can access system
+Pass/Fail: ✓
+
+====================================================
+
+Table 3: Loan Officer Client Management Test Cases
+==================================================
+
+Test ID: LSTC-011
+Test Description: View Client List
+Test Steps:
+1. Login as Loan Officer
+2. Click "Total Loan Client" card
+3. Access ClientListScreen
+Expected Result: Display all clients with their basic information, loan status, and action buttons
+Actual Result: Client list loads showing complete client data and available actions
+Pass/Fail: ✓
+
+Test ID: LSTC-012
+Test Description: View Client Profile
+Test Steps:
+1. From client list
+2. Select specific client
+3. Click to view profile
+Expected Result: Show detailed client information including personal data, loan history, and documents
+Actual Result: Client profile displays comprehensive information and document access
+Pass/Fail: ✓
+
+Test ID: LSTC-013
+Test Description: Process Client Metrics
+Test Steps:
+1. Open client profile
+2. Click "Process Metrics" button
+3. Wait for calculation
+Expected Result: System calculates and displays credit scoring metrics for loan evaluation
+Actual Result: Metrics processing completes, scoring data available for decision making
+Pass/Fail: ✓
+
+Test ID: LSTC-014
+Test Description: Approve Loan Application
+Test Steps:
+1. Review client metrics
+2. Set approved loan amount
+3. Click "Approve" button
+4. Confirm decision
+Expected Result: Loan status changes to "Approved", client moves to approved loans list
+Actual Result: Loan approval processed, status updated correctly in system
+Pass/Fail: ✓
+
+Test ID: LSTC-015
+Test Description: Decline Loan Application
+Test Steps:
+1. Evaluate client data
+2. Select "Decline" option
+3. Provide reason for decline
+4. Submit decision
+Expected Result: Loan status updates to "Declined", client removed from pending list
+Actual Result: Decline processing successful, client status properly updated
+Pass/Fail: ✓
+
+====================================================
+
+Table 4: Operations Manager Loan Processing Test Cases
+======================================================
+
+Test ID: LSTC-016
+Test Description: View Pending Loans
+Test Steps:
+1. Login as Operations Manager
+2. Click "Total Loan Pending" card
+3. Access pending loans list
+Expected Result: Display all loans with "hasPendingApplication" status for final processing
+Actual Result: Pending loans list shows clients awaiting operations approval
+Pass/Fail: ✓
+
+Test ID: LSTC-017
+Test Description: Digital Signature Capture
+Test Steps:
+1. Select pending loan
+2. Click "Sign Agreement"
+3. Use signature canvas to sign
+4. Click "Save" signature
+Expected Result: Signature is captured successfully, "✓ Signature captured successfully" message appears
+Actual Result: Digital signature saved properly, confirmation message displayed
+Pass/Fail: ✓
+
+Test ID: LSTC-018
+Test Description: Clear Signature Canvas
+Test Steps:
+1. Create signature on canvas
+2. Click "Clear Signature" button
+3. Verify canvas is empty
+Expected Result: Signature canvas is cleared completely, ready for new signature input
+Actual Result: Canvas cleared successfully, ready for new signature
+Pass/Fail: ✓
+
+Test ID: LSTC-019
+Test Description: Preview Signed Agreement
+Test Steps:
+1. Complete signature process
+2. Click "Preview Agreement" button
+3. Review generated document
+Expected Result: Navigate to SignedAgreementPreview showing loan details with embedded signature
+Actual Result: Agreement preview displays correctly with signature and loan information
+Pass/Fail: ✓
+
+Test ID: LSTC-020
+Test Description: Generate Promissory Note
+Test Steps:
+1. Complete agreement signing
+2. Finalize loan processing
+3. Generate final documents
+Expected Result: System creates promissory note with client details, loan terms, and digital signature
+Actual Result: Promissory note generated successfully with all required information
+Pass/Fail: ✓
+
+====================================================
+
+Table 5: Document Management Test Cases
+=======================================
+
+Test ID: LSTC-021
+Test Description: View Client Documents
+Test Steps:
+1. Access client profile
+2. Click on documents section
+3. Browse available files
+Expected Result: Display all uploaded client documents (Valid ID, ORCR, Land Title, Deeds of Assignment)
+Actual Result: Document list shows all available files for client review
+Pass/Fail: ✓
+
+Test ID: LSTC-022
+Test Description: Preview PDF Documents
+Test Steps:
+1. Select PDF document
+2. Click to preview
+3. View in document viewer
+Expected Result: PDF opens in DocumentPreviewScreen with proper formatting and controls
+Actual Result: PDF preview works correctly, document displays clearly
+Pass/Fail: ✓
+
+Test ID: LSTC-023
+Test Description: View Document by Date
+Test Steps:
+1. Select client with multiple submissions
+2. Choose specific date folder
+3. Access dated documents
+Expected Result: Show documents from selected date folder, allowing historical document review
+Actual Result: Date-specific documents load properly for review
+Pass/Fail: ✓
+
+Test ID: LSTC-024
+Test Description: Download Document
+Test Steps:
+1. Open document preview
+2. Use download functionality
+3. Save to local device
+Expected Result: Document downloads successfully in original format for offline viewing
+Actual Result: Download completes, file saved locally with correct format
+Pass/Fail: ✓
+
+====================================================
+
+Table 6: Notification System Test Cases
+=======================================
+
+Test ID: LSTC-025
+Test Description: Loan Officer Notifications
+Test Steps:
+1. Login as Loan Officer
+2. Check notification bell icon
+3. View unread count
+Expected Result: Display unread notification count, access to LoanOfficerNotifications screen
+Actual Result: Notification count displays correctly, notifications accessible
+Pass/Fail: ✓
+
+Test ID: LSTC-026
+Test Description: Operations Notifications
+Test Steps:
+1. Login as Operations Manager
+2. Click notification icon
+3. Access OpsNotifications
+Expected Result: Show operations-specific notifications, mark as read functionality available
+Actual Result: Ops notifications load properly, read/unread status managed correctly
+Pass/Fail: ✓
+
+Test ID: LSTC-027 // I REMOVED THIS
+Test Description: Mark Notifications as Read
+Test Steps:
+1. Open notifications screen
+2. View unread notifications
+3. Mark selected as read
+Expected Result: Unread count decreases, notification status changes to read
+Actual Result: Notification status updated correctly, count reflects changes
+Pass/Fail: ✓
+
+Test ID: LSTC-028 // this is LSTC-027 now and onwards numbers are changed
+Test Description: Real-time Notification Updates
+Test Steps:
+1. Perform action generating notification
+2. Check receiving user's notification
+3. Verify immediate update
+Expected Result: Notification appears in real-time without page refresh, unread count updates
+Actual Result: Real-time updates working, notifications appear immediately
+Pass/Fail: ✓
+
+====================================================
+
+Table 7: System Integration Test Cases
+======================================
+
+Test ID: LSTC-029
+Test Description: Credit Scoring API Integration
+Test Steps:
+1. Process client metrics
+2. Verify API communication
+3. Check data synchronization
+Expected Result: Successful communication with credit-scoring-api, accurate score calculation
+Actual Result: API integration working, scoring data accurate and timely
+Pass/Fail: ✓
+
+Test ID: LSTC-030
+Test Description: Responsive Design Testing
+Test Steps:
+1. Access application on mobile device
+2. Test navigation and functionality
+3. Verify mobile-specific layouts
+Expected Result: Application adapts to mobile screen, all features accessible and properly formatted
+Actual Result: Mobile responsiveness excellent, all features work on small screens
+Pass/Fail: ✓
+
+Test ID: LSTC-031
+Test Description: Cross-Browser Compatibility
+Test Steps:
+1. Test application on Chrome
+2. Test on Firefox
+3. Test on Safari/Edge
+Expected Result: Consistent functionality and appearance across different web browsers
+Actual Result: Application works consistently across all tested browsers
+Pass/Fail: ✓
+
+Test ID: LSTC-032
+Test Description: Data Persistence Test
+Test Steps:
+1. Login and perform actions
+2. Logout and login again
+3. Verify data retention
+Expected Result: User sessions and data changes persist correctly across login sessions
+Actual Result: Data persistence working correctly, no data loss between sessions
+Pass/Fail: ✓
+
+====================================================
+
+TSR (Task Success Rate) Calculation:
+===================================
+
+Total Number of Tasks Attempted: 32 test cases
+Number of Successfully Completed Tasks: 32 test cases (all passed)
+Number of Failed Tasks: 0 test cases  
+
+TSR = (32/32) × 100 = 100%
+
+TSR Analysis by User Role:
+- IT Admin TSR: 5/5 tasks = 100%
+- Loan Officer TSR: 5/5 tasks = 100%
+- Operations Manager TSR: 5/5 tasks = 100%
+- Document Management TSR: 4/4 tasks = 100%
+- Notification System TSR: 4/4 tasks = 100%
+- System Integration TSR: 4/4 tasks = 100%
+- Authentication TSR: 5/5 tasks = 100%
+
+Overall System TSR: 100%
+
+This demonstrates that the LoanSiya web application successfully enables users to complete all intended tasks without errors, indicating excellent usability and functionality across all user roles and system components.

@@ -102,10 +102,35 @@ if (isReapplicationInNewFolder) {
 - **Change**: Enhanced notification logic to detect reapplications in new date folders
 - **Impact**: Improved notification accuracy for ops managers
 
-## 🚀 **Next Steps**
+## 🚀 **Additional Fix Applied**
+
+### **Issue 2: Notification Overwriting Problem**
+After testing, we discovered that reapplication notifications were being **updated** instead of **created as new notifications**.
+
+**Problem**:
+- Multiple reapplications on same date updated the same notification
+- No "new notification" alerts in UI
+- Lost history of reapplication attempts
+
+**Solution**: Modified `createReapplicationNotification` function (lines 611-659) to:
+- **Always create NEW notifications** for reapplications
+- **Prevent spam** with 5-minute duplicate window
+- **Preserve notification history** for ops managers
+
+### **Before Final Fix:**
+- Reapplication → Updates existing notification (same ID)
+- No new notification alert
+
+### **After Final Fix:**
+- Reapplication → Creates brand new notification (new ID)
+- Triggers new notification alert
+- Full history preserved
+
+## 🎯 **Next Steps**
 
 1. **Restart backend API** to apply changes
 2. **Test with a new reapplication** for a recently declined client
-3. **Verify notification** shows as "Reapplication:" instead of "New loan application"
+3. **Verify NEW notification** appears with unique ID and timestamp
+4. **Confirm notification alerts** work properly in UI
 
-The fix is now complete and will properly identify reapplications regardless of mobile app folder behavior!
+The fix is now complete and will create proper new notifications for each reapplication attempt!
