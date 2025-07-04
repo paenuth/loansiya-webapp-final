@@ -1931,7 +1931,7 @@ app.get('/documents/:cid/all', async (req, res) => {
       console.log('Processing file:', filename, 'with extension:', ext);
       
       // Skip non-document files
-      if (!['jpg', 'jpeg', 'pdf'].includes(ext)) {
+      if (!['jpg', 'jpeg', 'png', 'pdf'].includes(ext)) {
         console.log('Skipping file with unsupported extension');
         continue;
       }
@@ -1955,7 +1955,8 @@ app.get('/documents/:cid/all', async (req, res) => {
       documents.push({
         name: filename,
         displayName,
-        type: ext === 'pdf' ? 'application/pdf' : 'image/jpeg',
+        type: ext === 'pdf' ? 'application/pdf' :
+              ext === 'png' ? 'image/png' : 'image/jpeg',
         date: latestDate
       });
     }
@@ -1997,7 +1998,7 @@ app.get('/documents/:cid/dates', async (req, res) => {
           // Count actual document files (not directories)
           const filename = parts[parts.length - 1];
           const ext = filename.split('.').pop().toLowerCase();
-          if (['jpg', 'jpeg', 'pdf'].includes(ext)) {
+          if (['jpg', 'jpeg', 'png', 'pdf'].includes(ext)) {
             dateInfo[potentialDate]++;
           }
         }
@@ -2052,7 +2053,7 @@ app.get('/documents/:cid/date/:date', async (req, res) => {
       console.log('Processing file:', filename, 'with extension:', ext);
       
       // Skip non-document files
-      if (!['jpg', 'jpeg', 'pdf'].includes(ext)) {
+      if (!['jpg', 'jpeg', 'png', 'pdf'].includes(ext)) {
         console.log('Skipping file with unsupported extension');
         continue;
       }
@@ -2077,7 +2078,8 @@ app.get('/documents/:cid/date/:date', async (req, res) => {
       documents.push({
         name: filename,
         displayName,
-        type: ext === 'pdf' ? 'application/pdf' : 'image/jpeg',
+        type: ext === 'pdf' ? 'application/pdf' :
+              ext === 'png' ? 'image/png' : 'image/jpeg',
         date: date
       });
     }
@@ -2197,10 +2199,10 @@ const DOCUMENT_TYPE_MAP = {
 
 // Reverse mapping for API endpoints (internal type -> paths)
 const INTERNAL_TYPE_MAP = {
-  'validid': ['validid.jpg', 'validid.jpeg'],
-  'orcr': ['orcr.jpg', 'orcr.jpeg'],
-  'landtitle': ['landtitle.jpg'],
-  'deed': ['deed.jpg'],
+  'validid': ['validid.jpg', 'validid.jpeg', 'validid.png'],
+  'orcr': ['orcr.jpg', 'orcr.jpeg', 'orcr.png'],
+  'landtitle': ['landtitle.jpg', 'landtitle.png'],
+  'deed': ['deed.jpg', 'deed.png'],
   'promissory-note': ['promissory-note.pdf'],
   'signed-agreement': ['signed_agreement.pdf', 'signed-agreement.pdf']
 };
@@ -2263,6 +2265,7 @@ app.get('/documents/:cid/file/:filename', async (req, res) => {
     const ext = filename.split('.').pop().toLowerCase();
     const contentType = ext === 'pdf' ? 'application/pdf' :
                        ['jpg', 'jpeg'].includes(ext) ? 'image/jpeg' :
+                       ext === 'png' ? 'image/png' :
                        'application/octet-stream';
 
     // Set response headers
@@ -2365,6 +2368,7 @@ app.get('/documents/:cid/:documentType', async (req, res) => {
     const ext = file.name.split('.').pop().toLowerCase();
     const contentType = ext === 'pdf' ? 'application/pdf' :
                        ['jpg', 'jpeg'].includes(ext) ? 'image/jpeg' :
+                       ext === 'png' ? 'image/png' :
                        'application/octet-stream';
 
     // Set response headers

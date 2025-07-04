@@ -108,7 +108,7 @@ export default function UserManagementScreen({ navigation }) {
           {isMobile ? (
             // Mobile Card Layout
             <View style={styles.mobileContainer}>
-              {users.map(renderMobileUserCard)}
+              {users.filter(user => user.roleType !== 'IT_ADMIN').map(renderMobileUserCard)}
             </View>
           ) : (
             // Desktop Table Layout
@@ -123,7 +123,7 @@ export default function UserManagementScreen({ navigation }) {
               </View>
 
               {/* Table Rows */}
-              {users.map((user) => (
+              {users.filter(user => user.roleType !== 'IT_ADMIN').map((user) => (
                 <View key={user.id} style={styles.tableRow}>
                   <Text style={[styles.cell, { flex: 2 }]}>{user.fullName}</Text>
                   <Text style={[styles.cell, { flex: 1.5 }]}>{user.username}</Text>
