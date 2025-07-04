@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, useWindowDimensions, Platform, Image } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
 import { authAPI } from '../../services/api';
 
@@ -52,6 +52,11 @@ export default function LoginScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={[styles.card, isMobile && styles.cardMobile]}>
+        <Image
+          source={require('../../../assets/logo loansiya.png')}
+          style={[styles.logo, isMobile && styles.logoMobile]}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>LoanSiya Log-in Portal</Text>
         <Text style={styles.label}>Username</Text>
         <TextInput style={styles.input} onChangeText={setUsername} value={username} />
@@ -95,6 +100,17 @@ const styles = StyleSheet.create({
   cardMobile: {
     padding: 20,
     width: '95%',
+  },
+  logo: {
+    width: Platform.select({ web: 120, default: 100 }),
+    height: Platform.select({ web: 80, default: 60 }),
+    alignSelf: 'center',
+    marginBottom: Platform.select({ web: 20, default: 15 }),
+  },
+  logoMobile: {
+    width: 80,
+    height: 50,
+    marginBottom: 12,
   },
   title: {
     fontSize: Platform.select({ web: 24, default: 20 }),

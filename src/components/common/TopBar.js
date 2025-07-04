@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Platform, Image } from 'react-native';
 import { AuthContext } from '../../contexts/AuthContext';
 import { clientAPI } from '../../services/api';
 
@@ -38,9 +38,16 @@ export default function TopBar({ navigation, role, showNotifications, unreadCoun
   return (
     <View style={styles.topbar}>
       <View style={[styles.leftSection, isMobile && styles.leftSectionMobile]}>
-        <Text style={[styles.brand, isMobile && styles.brandMobile]}>
-          <Text style={{ color: '#0066ff' }}>Loan</Text>Siya
-        </Text>
+        <View style={styles.brandContainer}>
+          <Image
+            source={require('../../../assets/logo loansiya.png')}
+            style={[styles.topBarLogo, isMobile && styles.topBarLogoMobile]}
+            resizeMode="contain"
+          />
+          <Text style={[styles.brand, isMobile && styles.brandMobile]}>
+            <Text style={{ color: '#0066ff' }}>Loan</Text>Siya
+          </Text>
+        </View>
         {!isMobile && <Text style={styles.title}>Dashboard</Text>}
       </View>
       <View style={[styles.rightSection, isMobile && styles.rightSectionMobile]}>
@@ -97,6 +104,19 @@ const styles = StyleSheet.create({
   },
   rightSectionMobile: {
     gap: 8,
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Platform.select({ web: 8, default: 6 }),
+  },
+  topBarLogo: {
+    width: Platform.select({ web: 32, default: 28 }),
+    height: Platform.select({ web: 24, default: 20 }),
+  },
+  topBarLogoMobile: {
+    width: 24,
+    height: 18,
   },
   brand: {
     fontSize: Platform.select({ web: 22, default: 18 }),
