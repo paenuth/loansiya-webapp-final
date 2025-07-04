@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Image } from 'react-native';
 import { UsersContext } from '../../contexts/UsersContext';
 
 export default function UserManagementScreen({ navigation }) {
@@ -74,9 +74,16 @@ export default function UserManagementScreen({ navigation }) {
       {/* Top bar */}
       <View style={[styles.topbar, isMobile && styles.topbarMobile]}>
         <View style={[styles.leftSection, isMobile && styles.leftSectionMobile]}>
-          <Text style={[styles.brand, isMobile && styles.brandMobile]}>
-            <Text style={{ color: '#0066ff' }}>Loan</Text>Siya
-          </Text>
+          <View style={styles.brandContainer}>
+            <Image
+              source={require('../../../assets/logo loansiya.png')}
+              style={[styles.topBarLogo, isMobile && styles.topBarLogoMobile]}
+              resizeMode="contain"
+            />
+            <Text style={[styles.brand, isMobile && styles.brandMobile]}>
+              <Text style={{ color: '#0066ff' }}>Loan</Text>Siya
+            </Text>
+          </View>
           {!isMobile && <Text style={styles.title}>User Management</Text>}
         </View>
         <View style={styles.rightSection}>
@@ -207,6 +214,19 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  topBarLogo: {
+    width: 32,
+    height: 24,
+  },
+  topBarLogoMobile: {
+    width: 24,
+    height: 18,
   },
   brand: {
     fontSize: 22,

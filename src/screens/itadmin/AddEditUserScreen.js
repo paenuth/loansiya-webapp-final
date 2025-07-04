@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, useWindowDimensions, Image } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { UsersContext } from '../../contexts/UsersContext';
 
@@ -130,9 +130,16 @@ export default function AddEditUserScreen({ route, navigation }) {
     <View style={styles.container}>
       <View style={[styles.topbar, isMobile && styles.topbarMobile]}>
         <View style={[styles.leftSection, isMobile && styles.leftSectionMobile]}>
-          <Text style={[styles.brand, isMobile && styles.brandMobile]}>
-            <Text style={{ color: '#0066ff' }}>Loan</Text>Siya
-          </Text>
+          <View style={styles.brandContainer}>
+            <Image
+              source={require('../../../assets/logo loansiya.png')}
+              style={[styles.topBarLogo, isMobile && styles.topBarLogoMobile]}
+              resizeMode="contain"
+            />
+            <Text style={[styles.brand, isMobile && styles.brandMobile]}>
+              <Text style={{ color: '#0066ff' }}>Loan</Text>Siya
+            </Text>
+          </View>
           {!isMobile && <Text style={styles.title}>{user ? 'Edit User' : 'Add User'}</Text>}
         </View>
         <View style={styles.rightSection}>
@@ -276,6 +283,19 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  topBarLogo: {
+    width: 32,
+    height: 24,
+  },
+  topBarLogoMobile: {
+    width: 24,
+    height: 18,
   },
   brand: {
     fontSize: 22,
